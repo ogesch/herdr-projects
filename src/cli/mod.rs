@@ -1,6 +1,8 @@
 //! The one program. With no arguments it opens the board in the current terminal; the plugin's pane entrypoint runs
 //! the same program as the plugin's pane in herdr. The subcommands let any agent drive the board from its shell. The
 //! entries herdr and the agents' hooks run are here; the commands on tasks are cli/tasks.rs.
+pub mod agent_overview;
+mod agent_overview_native;
 pub mod flags;
 pub mod help;
 pub mod tasks;
@@ -44,6 +46,7 @@ pub fn main(argv: Vec<String>) -> i32 {
     }
 }
 fn run(cmd: &str, a: &Args) -> Res<i32> {
+    if cmd == "agents" { return agent_overview::run(a); }
     // A flag the command does not know is refused before anything is done, with the nearest right one named
     // (cli/flags.rs). Every command: the ones herdr, a hook and the board itself run too.
     refuse_unknown(cmd, a)?;

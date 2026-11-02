@@ -56,3 +56,9 @@ title = "Work board"
 # instead, a window over everything (src/board/run/place.rs).
 placement = "tab"
 command = ["sh", "bin/run.sh", "board"]
+
+[[panes]]
+id = "agents"
+title = "Agent overview"
+placement = "split"
+command = ["sh", "bin/run.sh", "agents"]

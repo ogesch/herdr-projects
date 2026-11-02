@@ -1197,8 +1197,10 @@ dependencies = [
  "serde_json",
  "sha1_smol",
  "toml",
+ "tungstenite",
  "unicode-segmentation",
  "unicode-width",
+ "yaml-rust2",
 ]
 
 [[package]]
