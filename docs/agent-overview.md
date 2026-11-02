@@ -4,6 +4,8 @@
 
 Codex daemon reads tolerate temporary socket read timeouts for up to 20 seconds per request, including paginated conversation history. Disconnects and exhausted deadlines still report an error and name the failed request.
 
+Native refreshes read the last successful Codex snapshot immediately. One detached worker updates that private cache, with at least 30 seconds between completed attempts and a shared 90-second daemon-request deadline. A slow daemon cannot consume the app's 30-second command limit or hold up native agent updates. The sidebar indicates an ongoing refresh; failed refreshes retain the previous snapshot and report the source error.
+
 The native app and the original Herdr TUI are separate runtimes. The requested app view is installed as the personal layout `act-workflow`, with `~/.config/herdr-app/mods/act-overview` providing the native panels. It is selected already; use `herdr-app do layout.switch --name act-workflow` to return to it, or select the layout in the app. `main` remains the standard layout. No terminal command inside Herdr TUI and no `HERDR_ENV` override are needed for this view.
 
 The ACT Spaces panel is a personal clone of Herdr's native list. It keeps Space creation, menus, machine groups, and drag ordering, and always shows the detected repository/branch and the first terminal's live working folder independently of the Space's free name.

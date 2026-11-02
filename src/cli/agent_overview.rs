@@ -17,7 +17,7 @@ pub fn run(args: &Args) -> Res<i32> {
         "native-snapshot" => {println!("{}",super::agent_overview_native::snapshot()?);Ok(0)},
         "refresh-codex" => {
             let cache = crate::agents::codex_app_cache::directory();
-            crate::agents::codex_app_cache::refresh_at(&cache, events::now_ms() as i64, codex_app::list_threads)?;
+            crate::agents::codex_app_cache::refresh_at(&cache, || events::now_ms() as i64, codex_app::list_threads)?;
             Ok(0)
         },
         "native-update" => {super::agent_overview_native::update(args.pos.get(2).ok_or("native-update needs JSON")?)?;Ok(0)},

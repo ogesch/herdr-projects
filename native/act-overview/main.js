@@ -5,7 +5,7 @@ import { theme, props, shared, setShared, focused, spaces, panes, terminals, run
 import { runtime, selected, completion, nextCompletion, sourceName, lightSnapshot, liveSnapshot, spaceSnapshot } from "./model.js";
 import { newQuestions } from "./tree-model.js";
 import { renderProjectTree } from "./tree-view.js";
-const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/4fa9731d7b7aeff679741f98a9a05ef5e697a24d/herdr-projects";
+const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/07c748ad5fd8261836ac5527a13ec6983e8baf86/herdr-projects";
 const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces";
 function button(id, title, action, t) {
   return div().id(id).px(9).py(5).rounded(6).text_size(11.5).text_color(t.muted).cursor_pointer().role("button").accessibility_label(title).tab_index(0)
@@ -195,6 +195,7 @@ export default class ActOverview extends View {
         .child(button("hidden", hidden ? "Alle anzeigen ✓" : "Ausgeblendete", () => setShared("herdr-act.hidden", !hidden), t)))
       .when(snapshot.rows.length > 0, el => el.child(list))
       .when(!snapshot.rows.length, el => el.child(div().p(14).text_color(t.muted).child(this.busy ? "Agentendaten werden geladen …" : all ? "Keine Agentensitzungen gefunden." : "Keine Agenten mit diesem Space verbunden. Gespeicherte Gespräche findest du unter „All Spaces“.")))
+      .when(Boolean(snapshot.codex?.refreshing), el => el.child(div().p(10).text_size(11).text_color(t.muted).child("Codex-Daten werden aktualisiert …")))
       .when(Boolean(this.error || snapshot.errors.length), el => el.child(div().p(10).text_size(11).text_color(t.ansi1).child(this.error || snapshot.errors.join(" · "))));
   }
 }

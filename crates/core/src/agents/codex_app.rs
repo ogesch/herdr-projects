@@ -6,8 +6,10 @@ use tungstenite::{Message, WebSocket};
 
 const TIMEOUT: Duration = Duration::from_secs(20);
 const READ_TIMEOUT: Duration = Duration::from_millis(500);
+const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(90);
 
 pub fn list_threads() -> Result<Vec<Value>, String> {
+    let deadline = Instant::now() + SNAPSHOT_TIMEOUT;
     let path = super::homes::codex_home().join("app-server-control/app-server-control.sock");
     let stream = UnixStream::connect(&path)
         .map_err(|e| format!("Codex Desktop daemon unavailable ({}): {e}", path.display()))?;
@@ -16,25 +18,32 @@ pub fn list_threads() -> Result<Vec<Value>, String> {
     let (socket, _) = tungstenite::client("ws://localhost/", stream)
         .map_err(|e| format!("Codex daemon handshake failed: {e}"))?;
     socket.get_ref().set_read_timeout(Some(READ_TIMEOUT)).map_err(|e| e.to_string())?;
-    snapshot(Connection { socket, next_id: 0, requests: Vec::new() })
+    let mut connection = Connection::new(socket);
+    connection.deadline = deadline;
+    snapshot(connection)
 }
 
 struct Connection {
     socket: WebSocket<UnixStream>,
+    deadline: Instant,
     next_id: u64,
     requests: Vec<Value>,
 }
 impl Connection {
+    fn new(socket: WebSocket<UnixStream>) -> Self {
+        Self { socket, deadline: Instant::now() + SNAPSHOT_TIMEOUT, next_id: 0, requests: vec![] }
+    }
     fn notify(&mut self, method: &str, params: Value) -> Result<(), String> {
         self.socket.send(Message::Text(json!({"method":method,"params":params}).to_string().into()))
             .map_err(|e| e.to_string())
     }
     fn call(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        let deadline = (Instant::now() + TIMEOUT).min(self.deadline);
+        if Instant::now() >= deadline { return Err(format!("Codex daemon timed out: {method}")); }
         self.next_id += 1;
         let id = self.next_id;
         self.socket.send(Message::Text(json!({"id":id,"method":method,"params":params}).to_string().into()))
             .map_err(|e| e.to_string())?;
-        let deadline = Instant::now() + TIMEOUT;
         loop {
             if Instant::now() > deadline { return Err(format!("Codex daemon timed out: {method}")); }
             let message = match self.socket.read() {
@@ -103,6 +112,15 @@ fn snapshot(mut connection: Connection) -> Result<Vec<Value>, String> {
 mod tests {
     use super::*;
     #[test]
+    fn a_snapshot_deadline_stops_later_requests_before_they_are_sent() {
+        let (client, _server) = UnixStream::pair().unwrap();
+        let socket = WebSocket::from_raw_socket(client, tungstenite::protocol::Role::Client, None);
+        let mut connection = Connection::new(socket);
+        connection.deadline = Instant::now();
+        assert!(connection.call("thread/list", json!({})).unwrap_err().contains("timed out: thread/list"));
+        assert_eq!(connection.next_id, 0);
+    }
+    #[test]
     fn real_programs_keeps_waiting_for_a_reply_after_a_socket_read_timeout() {
         let (client, server) = UnixStream::pair().unwrap();
         let worker = std::thread::spawn(move || {
@@ -118,7 +136,7 @@ mod tests {
         });
         let (socket, _) = tungstenite::client("ws://localhost/", client).unwrap();
         socket.get_ref().set_read_timeout(Some(Duration::from_millis(5))).unwrap();
-        let mut connection = Connection { socket, next_id: 0, requests: vec![] };
+        let mut connection = Connection::new(socket);
         let reply = connection.call("thread/list", json!({}));
         worker.join().unwrap();
         assert_eq!(reply.unwrap(), json!({"data":[]}));
@@ -131,7 +149,7 @@ mod tests {
             socket.read().unwrap();
         });
         let (socket, _) = tungstenite::client("ws://localhost/", client).unwrap();
-        let mut connection = Connection { socket, next_id: 0, requests: vec![] };
+        let mut connection = Connection::new(socket);
         assert!(connection.call("thread/list", json!({})).unwrap_err().contains("thread/list"));
         worker.join().unwrap();
     }
@@ -159,7 +177,7 @@ mod tests {
             methods
         });
         let (socket, _) = tungstenite::client("ws://localhost/", client).unwrap();
-        let threads = snapshot(Connection { socket, next_id: 0, requests: vec![] }).unwrap();
+        let threads = snapshot(Connection::new(socket)).unwrap();
         assert_eq!(threads[0]["status"]["type"], "active");
         assert!(!worker.join().unwrap().iter().any(|m| m.contains("resume") || m.contains("start")));
     }
