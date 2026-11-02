@@ -5,8 +5,9 @@ import { theme, props, shared, setShared, focused, spaces, panes, terminals, run
 import { runtime, selected, completion, nextCompletion, sourceName, lightSnapshot, liveSnapshot, spaceSnapshot } from "./model.js";
 import { newQuestions } from "./tree-model.js";
 import { renderProjectTree } from "./tree-view.js";
-const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/07c748ad5fd8261836ac5527a13ec6983e8baf86/herdr-projects";
-const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces";
+import { closeSession } from "./lifecycle.js";
+const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/1cb43df4b3a38b486d4ad809ec359a54059187ed/herdr-projects";
+const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces", REFRESH = "herdr-act.refresh";
 function button(id, title, action, t) {
   return div().id(id).px(9).py(5).rounded(6).text_size(11.5).text_color(t.muted).cursor_pointer().role("button").accessibility_label(title).tab_index(0)
     .on_key_down((event, cx) => { if (["enter", "space"].includes(event.keystroke)) { cx.stop_propagation(); action(event, cx); } })
@@ -66,6 +67,7 @@ export default class ActOverview extends View {
         const fresh = await exec(BINARY, ["agents", "native-snapshot"]);
         if (fresh.code !== 0) throw new Error(fresh.stderr);
         setShared(SNAPSHOT, lightSnapshot(JSON.parse(fresh.stdout), shared(SELECTION), focused()?.terminal));
+        setShared(REFRESH, (shared(REFRESH) ?? 0) + 1);
         if (close) closeOverlay(props().overlay);
         this.error = "";
       } catch (e) { this.error = String(e); }
@@ -125,6 +127,39 @@ export default class ActOverview extends View {
       cx.notify();
     });
   }
+  closeSession(cx) {
+    if (this.closing) return;
+    this.closing = true;
+    this.error = "";
+    cx.notify();
+    const session = props().session, overlay = props().overlay;
+    cx.spawn(async cx => {
+      try {
+        await closeSession(session, exec, BINARY);
+        setShared(SELECTION, null);
+        setShared("herdr-act.hidden", false);
+        setShared(REFRESH, (shared(REFRESH) ?? 0) + 1);
+        run("layout.show", { id: "act-terminal" });
+        run("layout.resize", { id: "act-context", px: 190 });
+        closeOverlay(overlay);
+      } catch (e) { this.error = e.message ?? String(e); }
+      this.closing = false; cx.notify();
+    });
+  }
+  closeDialog(cx) {
+    const t = theme(), s = props().session;
+    return v_flex().w(460).p(20).gap(12).bg(t.popover).text_color(t.foreground)
+      .child(div().font_semibold().child(s.parent_id ? "Unteragent schließen?" : "Agent schließen?"))
+      .child(div().text_size(13).child(s.title))
+      .child(div().text_size(12).text_color(t.muted).child(s.source?.Native
+        ? "Das Terminal und seine Terminal-Unteragenten werden beendet. Laufende Arbeit wird unterbrochen."
+        : "Die Codex-Sitzung wird geschlossen und archiviert. Ihr Verlauf bleibt erhalten."))
+      .when(Boolean(this.error), el => el.child(div().text_size(12).text_color(t.ansi1).child(this.error)))
+      .child(h_flex().justify_end().gap(8)
+        .child(button("cancel", "Abbrechen", () => closeOverlay(props().overlay), t).disabled(Boolean(this.closing)))
+        .child(button("confirm-close", this.closing ? "Wird geschlossen …" : "Schließen", (_e, cx) => this.closeSession(cx), t)
+          .text_color(t.ansi1).disabled(Boolean(this.closing))));
+  }
   fold(group, cx) {
     if (!this.folded.delete(group)) this.folded.add(group);
     localStorage.setItem("project-tree.sections", JSON.stringify([...this.folded])); cx.notify();
@@ -139,7 +174,10 @@ export default class ActOverview extends View {
     const s = row.session, complete = completion(s);
     return v_flex().id("act-details").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(7).bg(t.surface).text_color(t.foreground).text_size(12)
       .child(h_flex().gap(8).items_center().child(div().min_w(0).flex_1().font_semibold().truncate().child(s.title))
-        .child(button("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } }), t)))
+        .child(button("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } }), t))
+        .when(Boolean(s.source?.Native || s.source?.CodexApp), el => el.child(button("close", "Schließen …", () => openOverlay({
+          mod: "act-overview", kind: "dialog", width: 460, props: { mode: "close", session: s }
+        }), t))))
       .child(div().text_color(t.muted).child(`${s.project} · ${s.program} · ${sourceName(s)}`))
       .child(div().child(`${runtime(s.runtime_status)} · Auftrag: ${complete === true ? "Fertig" : complete === false ? "Nicht abgeschlossen" : "Unbekannt"}`))
       .child(div().child(`ACT: ${s.act_phase ?? "Unbekannt"} · ${s.phase_source ?? "Keine Phasenmeldung"}`))
@@ -153,7 +191,7 @@ export default class ActOverview extends View {
       .child(h_flex().gap(6)
         .child(button("workflow", `${this.history ? "▾" : "▸"} Verlauf (${s.phase_history.length})`, (_e, cx) => { this.history = !this.history; cx.notify(); }, t))
         .child(button("complete", s.manual_completion == null ? "Als fertig markieren" : s.manual_completion ? "Als offen markieren" : "Automatisch erkennen", (_e, cx) => this.mutate({ id: s.id, completion: nextCompletion(s), generation: s.activity_generation }, cx), t))
-        .when(row.group === "Done" || s.hidden, el => el.child(button("hide", s.hidden ? "Einblenden" : "Ausblenden", (_e, cx) => this.mutate({ id: s.id, hidden: !s.hidden, generation: s.activity_generation }, cx), t))))
+        .child(button("hide", s.hidden ? "Einblenden" : "Ausblenden", (_e, cx) => this.mutate({ id: s.id, hidden: !s.hidden, generation: s.activity_generation }, cx), t)))
       .when(this.history, el => el.children([...s.phase_history].reverse().map((phase, i) => div().id("phase-" + i).text_color(t.muted).child(`${phase.phase} · ${phase.command ?? "manuell"} · ${phase.source}${phase.ended_at ? " · beendet" : ""}`))));
   }
   editor(cx) {
@@ -169,6 +207,10 @@ export default class ActOverview extends View {
   }
   render(cx) {
     if (this.mode === "edit") return this.editor(cx);
+    if (this.mode === "close") return this.closeDialog(cx);
+    if (this.mode === "list" && this.refreshRequest !== shared(REFRESH)) {
+      this.refreshRequest = shared(REFRESH); this.refresh(cx);
+    }
     const focus = focused(), all = shared(ALL_SPACES) === true;
     if (this.mode === "list" && this.allSpaces !== all) { this.allSpaces = all; this.pages = {}; }
     if (this.mode === "list" && (this.tab !== focus?.tab || this.space !== focus?.space)) {

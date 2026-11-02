@@ -60,6 +60,9 @@ pub fn update(raw:&str)->Res<()> {
     if let Some(hidden)=request["hidden"].as_bool() {
         correction.hidden=hidden;correction.hidden_generation=request["generation"].as_u64();
     }
+    if let Some(closed)=request["closed"].as_bool() {
+        correction.closed=closed;correction.closed_generation=request["generation"].as_u64();
+    }
     if let Some(phase)=request["fields"]["phase"].as_str() {
         if phase.is_empty() {store.correction(id).act_phase=None;}
         else {store.record_phase(id,phase.chars().take(200).collect(),overview_events::now_ms());}

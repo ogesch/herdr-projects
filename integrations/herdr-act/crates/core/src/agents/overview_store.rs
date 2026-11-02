@@ -14,6 +14,9 @@ pub struct SessionCorrection {
     pub completion_generation: Option<u64>,
     pub hidden: bool,
     pub hidden_generation: Option<u64>,
+    #[serde(default)]
+    pub closed: bool,
+    pub closed_generation: Option<u64>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct StoredCorrections {
@@ -93,6 +96,14 @@ impl OverviewStore {
             correction.hidden_generation = None;
             changed = true;
         }
+        if correction.closed && new_work && (newer(correction.closed_generation)
+            || (correction.closed_generation.is_none() && session.activity_generation.is_some())) {
+            correction.closed = false;
+            correction.closed_generation = None;
+            correction.hidden = false;
+            correction.hidden_generation = None;
+            changed = true;
+        }
         if let Some(title) = &correction.title { session.title.clone_from(title); }
         if let Some(project) = &correction.project { session.project.clone_from(project); }
         if correction.ticket.is_some() { session.ticket.clone_from(&correction.ticket); }
@@ -106,6 +117,12 @@ impl OverviewStore {
         session.phase_history.sort_by_key(|p| p.recorded_at);
         session.manual_completion = correction.manual_completion;
         session.hidden = correction.hidden;
+        if correction.closed {
+            session.runtime_status = "closed".into();
+            session.source = super::overview::SessionSource::Ended;
+            session.question = None;
+            session.needs_user = false;
+        }
         super::overview_events::project::classify(session);
         changed
     }

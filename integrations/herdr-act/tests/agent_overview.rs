@@ -107,3 +107,46 @@ fn hidden_completed_session_reappears_when_new_work_is_seen() {
     store.save().unwrap();
     std::fs::remove_file(file).unwrap();
 }
+
+#[test]
+fn closed_sessions_survive_reload_without_completing_work_and_reopen_for_new_activity() {
+    let file = test_file();
+    let mut store = OverviewStore::at(&file);
+    let original = from_codex_app(&[json!({
+        "id":"child","originator":"Codex Desktop","status":{"type":"active"},"cwd":"/repo"
+    })]).remove(0);
+    let correction = store.correction(&original.id);
+    correction.closed = true;
+    correction.closed_generation = Some(7);
+    correction.hidden = true;
+    correction.hidden_generation = Some(7);
+    store.save().unwrap();
+    let mut store = OverviewStore::at(&file);
+    let mut stale = original.clone();
+    stale.activity_generation = Some(7);
+    stale.question = Some("old question".into());
+    stale.needs_user = true;
+    store.apply(&mut stale);
+    assert_eq!(stale.runtime_status, "closed");
+    assert_eq!(stale.source, SessionSource::Ended);
+    assert!(stale.hidden);
+    assert_eq!(stale.question, None);
+    assert!(!stale.needs_user);
+    assert_eq!(stale.manual_completion, None);
+    assert_eq!(stale.task_complete, None);
+    let mut resumed = original;
+    resumed.activity_generation = Some(8);
+    assert!(store.apply(&mut resumed));
+    assert!(!resumed.hidden);
+    assert_eq!(resumed.runtime_status, "active");
+    assert!(matches!(resumed.source, SessionSource::CodexApp { .. }));
+    let correction = store.correction(&resumed.id);
+    correction.closed = true;
+    correction.closed_generation = None;
+    correction.hidden = true;
+    correction.hidden_generation = None;
+    assert!(store.apply(&mut resumed));
+    assert!(!resumed.hidden);
+    assert_eq!(resumed.runtime_status, "active");
+    std::fs::remove_file(file).unwrap();
+}

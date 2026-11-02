@@ -15,6 +15,7 @@ mod agent_access;
 mod agent_overview;
 mod agent_overview_cache;
 mod agent_overview_hooks;
+mod agent_overview_lifecycle;
 mod agent_overview_native;
 mod agent_overview_shell;
 mod agent_overview_space;
