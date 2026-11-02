@@ -29,6 +29,7 @@ fn an_ssh_agent_whose_socket_is_not_there_is_not_taken() {
 #[test]
 fn env_json_remembers_the_names_of_the_ssh_agent_and_of_gh_login_never_their_values() {
     let w = world();
+    sw::clock::set(Some(1_700_000_000_000)); // A real timestamp can coincidentally contain the test PID's digits.
     let out = format!("PATH=/a/bin\nSSH_AUTH_SOCK={}\nSSH_AGENT_PID=4242\nGH_TOKEN=s3cret\n", w.socket);
     let c = serde_json::Value::Object(remembered(&out, "/fallback"));
     assert_eq!(c["ssh"], serde_json::json!(["SSH_AUTH_SOCK", "SSH_AGENT_PID"]));

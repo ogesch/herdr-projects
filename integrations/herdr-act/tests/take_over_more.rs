@@ -127,11 +127,14 @@ fn real_programs_herdr_superworks_own_processes_are_stopped_and_no_other() {
     let data = w.base.join("moved/data");
     let old = w.base.join("old/herdr-superwork");
     std::fs::create_dir_all(old.parent().unwrap()).unwrap();
-    std::fs::copy("/bin/sleep", &old).unwrap();
-    // macOS rejects the copied system binary's signature until it is signed at its new path.
+    // Multicall coreutils cannot run as herdr-superwork; the test executable can keep that process identity.
+    std::fs::copy(std::env::current_exe().unwrap(), &old).unwrap();
+    // macOS requires a valid signature on the copied fixture.
     #[cfg(target_os = "macos")]
     assert!(std::process::Command::new("/usr/bin/codesign").args(["--force", "--sign", "-"]).arg(&old).status().unwrap().success());
-    let keeper = std::process::Command::new(&old).arg("30").spawn().unwrap();
+    let keeper = std::process::Command::new(&old)
+        .args(["--exact", "take_over_more::real_programs_renamed_process_fixture"])
+        .env("HERDR_TEST_KEEPER_PROCESS", "1").stdout(std::process::Stdio::null()).spawn().unwrap();
     let mut other = std::process::Command::new("/bin/sleep").arg("30").spawn().unwrap();
     let mark = |c: &std::process::Child| { let pid = c.id() as i64; serde_json::json!({ "pid": pid, "start": sw::store::files::proc_start(pid) }).to_string() };
     put(&data.join("keeper.json"), &mark(&keeper));
@@ -143,4 +146,11 @@ fn real_programs_herdr_superworks_own_processes_are_stopped_and_no_other() {
     assert_eq!(reaped.join().unwrap().signal(), Some(libc::SIGTERM), "{pid}");
     assert!(other.try_wait().unwrap().is_none());
     let _ = other.kill(); let _ = other.wait();
+}
+
+#[test]
+fn real_programs_renamed_process_fixture() {
+    if std::env::var_os("HERDR_TEST_KEEPER_PROCESS").is_some() {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+    }
 }
