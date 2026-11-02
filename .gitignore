@@ -5,3 +5,8 @@ docs/where-things-live.md
 # The program bin/run.sh downloads for this platform, with its version and its download lock.
 /bin/herdr-projects-*
 /bin/.herdr-projects-*
+# Local agent state and Herdr-generated editor metadata stay on this machine.
+/.ijfw/
+/.serena/
+/native/**/gpui-kit.d.ts
+/native/**/jsconfig.json

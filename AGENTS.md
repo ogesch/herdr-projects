@@ -1,3 +1,24 @@
+---
+ijfw_version: 1.3.2
+ijfw_schema: 1
+type: software
+primary_type: software
+secondary_types: []
+confidence: 0.907
+detected_at: 2026-10-30T12:22:56.004Z
+signals:
+  - kind: manifest
+    weight: 0.9
+    manifests: [Cargo.toml, package.json, Cargo.toml, Cargo.toml, Cargo.toml, Cargo.toml]
+  - kind: dir_design
+    weight: 0.4
+    name: assets
+  - kind: file_extension_ratio
+    weight: 0.7
+    domain: software
+    ratio: 0.999
+    count: 737
+---
 # Working on herdr-projects
 
 Several agents change this repo at once. Before you add or change anything, look at the map: it says which file
@@ -95,3 +116,11 @@ board: asked again, it answers at once.
   like.
 
 How it works, and why: [docs/testing.md](docs/testing.md). You do not need it to start.
+
+<!-- IJFW-MEMORY-START -->
+Project memory at .ijfw/memory/. Call `ijfw_memory_prelude` for full context.
+<!-- IJFW-MEMORY-END -->
+
+<!-- IJFW-AGENTS-START -->
+No project agents yet. Run `ijfw team` to set them up.
+<!-- IJFW-AGENTS-END -->
