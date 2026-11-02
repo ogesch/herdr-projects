@@ -10,3 +10,4 @@ docs/where-things-live.md
 /.serena/
 /native/**/gpui-kit.d.ts
 /native/**/jsconfig.json
+worktrees
