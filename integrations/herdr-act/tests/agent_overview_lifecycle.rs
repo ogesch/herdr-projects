@@ -47,7 +47,7 @@ globalThis.stub={...model,closeSession,View:class{},div:node,v_flex:node,h_flex:
  props:()=>propsValue,shared:k=>values.get(k),setShared:(k,v)=>values.set(k,v),focused:()=>({}),
  openOverlay:v=>{opened=v;},closeOverlay:id=>overlayClosed.push(id),exec,
  terminals:()=>[],spaces:()=>[],panes:()=>[],run(){},setAgentOrder(){},newQuestions(){},renderProjectTree(){}};
-const prefix='const {View,div,v_flex,h_flex,theme,props,shared,setShared,focused,openOverlay,closeOverlay,exec,terminals,spaces,panes,run,setAgentOrder,newQuestions,renderProjectTree,runtime,selected,completion,nextCompletion,sourceName,lightSnapshot,liveSnapshot,spaceSnapshot,closeSession}=globalThis.stub;\n';
+const prefix='const {View,div,v_flex,h_flex,theme,props,shared,setShared,focused,openOverlay,closeOverlay,exec,terminals,spaces,panes,run,setAgentOrder,newQuestions,renderProjectTree,runtime,selected,completion,nextCompletion,sourceName,lightSnapshot,liveSnapshot,spaceSnapshot,embeddedChild,ownerRow,closeSession}=globalThis.stub;\n';
 const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'')
  .replace(/^const BINARY = .*;$/m,'const BINARY = "/observer";');
 const {default:Overview}=await import(data(prefix+source));

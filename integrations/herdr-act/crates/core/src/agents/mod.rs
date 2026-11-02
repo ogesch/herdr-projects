@@ -13,6 +13,7 @@ pub mod kinds;
 pub mod model_refused;
 pub mod models;
 pub mod overview;
+pub mod overview_conversation;
 pub mod overview_native;
 pub mod overview_events;
 pub mod overview_store;

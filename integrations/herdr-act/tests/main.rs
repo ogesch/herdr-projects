@@ -14,6 +14,8 @@ mod after_queued;
 mod agent_access;
 mod agent_overview;
 mod agent_overview_cache;
+mod agent_overview_conversation;
+mod agent_overview_events;
 mod agent_overview_hooks;
 mod agent_overview_lifecycle;
 mod agent_overview_native;

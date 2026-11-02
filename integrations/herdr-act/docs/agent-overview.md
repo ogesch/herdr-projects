@@ -2,6 +2,10 @@
 
 ## macOS app
 
+Codex children that share their parent's terminal open a read-only conversation view when selected. It shows the recorded delegated task and the latest 80 visible messages, updates from conversation file events, and returns to the live parent terminal with “Zum Hauptagenten”. Long tasks can be expanded; unavailable or failed reads have explicit states. Late replies never replace a newly selected child. Child labels use their recorded task names instead of “default”; the label index avoids rereading every conversation on each overview refresh.
+
+The overview reacts to native terminal/Space changes and watches local hook records, corrections, the Codex catalog and cached daemon snapshots. Changes are batched; a selected child also follows its recorded parent transcript. Events received during an active read trigger one follow-up. Codex catalog changes during the 30-second cache cooldown schedule one delayed refresh. A 60-second safety check retries failed watchers and recovers missed events; there is no five-second polling. On platforms that cannot watch the configured tree, the sidebar reports the fallback.
+
 Codex daemon reads tolerate temporary socket read timeouts for up to 20 seconds per request, including paginated conversation history. Disconnects and exhausted deadlines still report an error and name the failed request.
 
 Native refreshes read the last successful Codex snapshot immediately. One detached worker updates that private cache, with at least 30 seconds between completed attempts and a shared 90-second daemon-request deadline. A slow daemon cannot consume the app's 30-second command limit or hold up native agent updates. The sidebar indicates an ongoing refresh; failed refreshes retain the previous snapshot and report the source error.

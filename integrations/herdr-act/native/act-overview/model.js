@@ -16,9 +16,23 @@ export function filtered(rows, project, hidden, collapsed = new Set()) {
     return true;
   });
 }
+export function embeddedChild(session, rows) {
+  const address = session.source?.Native?.terminal;
+  const parent = rows.find(row => row.session.id === session.parent_id)?.session;
+  return Boolean(address && session.id.startsWith("codex-thread:") && parent?.source?.Native?.terminal === address);
+}
+export function ownerRow(session, rows) {
+  const visited = new Set();
+  let row = rows.find(row => row.session.id === session.parent_id);
+  while (row && embeddedChild(row.session, rows) && !visited.has(row.session.id)) {
+    visited.add(row.session.id);
+    row = rows.find(next => next.session.id === row.session.parent_id);
+  }
+  return row && !embeddedChild(row.session, rows) ? row : null;
+}
 export function selected(rows, id, terminal) {
   const explicit = rows.find(r => r.session.id === id);
-  if (explicit && (!explicit.session.source?.Native || explicit.session.source.Native.terminal === terminal)) return explicit;
+  if (explicit && (embeddedChild(explicit.session, rows) || !explicit.session.source?.Native || explicit.session.source.Native.terminal === terminal)) return explicit;
   return rows.find(r => terminal && r.session.source?.Native?.terminal === terminal);
 }
 function subsetSnapshot(snapshot, visible) {

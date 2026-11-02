@@ -20,6 +20,7 @@ pub struct Snapshot {
     pub error: Option<String>,
     pub refreshing: bool,
     pub refresh_due: bool,
+    pub refresh_after_ms: i64,
 }
 pub fn directory() -> PathBuf { files::data_dir().join("agent-overview/codex-cache") }
 fn stored(directory: &Path) -> Res<Stored> {
@@ -43,7 +44,8 @@ fn due(record: &Stored, now: i64) -> bool {
 pub fn read_at(directory: &Path, now: i64, refreshing: bool) -> Res<Snapshot> {
     let record = stored(directory)?;
     let refresh_due = !refreshing && due(&record, now);
-    Ok(Snapshot { threads: record.threads, updated_at: record.updated_at, error: record.error, refreshing, refresh_due })
+    let refresh_after_ms = record.attempted_at.map_or(0, |at| REFRESH_MS.saturating_sub(now.saturating_sub(at).max(0)).max(0));
+    Ok(Snapshot { threads: record.threads, updated_at: record.updated_at, error: record.error, refreshing, refresh_due, refresh_after_ms })
 }
 pub fn refresh_at(directory: &Path, now: impl Fn() -> i64, fetch: impl FnOnce() -> Result<Vec<Value>, String>) -> Res<bool> {
     let _held = match files::hold_lock(LOCK, 0) {

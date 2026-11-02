@@ -94,6 +94,7 @@ fn codex_talk(rows: &[Value]) -> Vec<Said> {
     let mut out = vec![];
     for e in rows {
         let (p, at) = (e.at("payload"), when(e.at("timestamp")));
+        if p.s("channel") == "analysis" { continue; }
         if let Some(t) = typed(e) { add(&mut out, true, &t, at); }
         else if e.s("type") == "event_msg" && p.s("type") == "turn_aborted" && ["", "interrupted"].contains(&p.s("reason")) { add(&mut out, false, STOPPED, at); }
         else if e.s("type") == "compacted" { add(&mut out, false, cmd::COMPACTED, at); }

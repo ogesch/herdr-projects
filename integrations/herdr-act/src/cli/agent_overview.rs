@@ -15,6 +15,11 @@ pub fn run(args: &Args) -> Res<i32> {
     if args.flags.b("help") {print!("{}",super::help::HELP);return Ok(0);}
     match args.pos.get(1).map(String::as_str).unwrap_or("") {
         "native-snapshot" => {println!("{}",super::agent_overview_native::snapshot()?);Ok(0)},
+        "conversation" => {
+            let key=args.pos.get(2).ok_or("conversation needs a session identity")?;
+            println!("{}",crate::agents::overview_conversation::read(key)?);
+            Ok(0)
+        },
         "refresh-codex" => {
             let cache = crate::agents::codex_app_cache::directory();
             crate::agents::codex_app_cache::refresh_at(&cache, || events::now_ms() as i64, codex_app::list_threads)?;
