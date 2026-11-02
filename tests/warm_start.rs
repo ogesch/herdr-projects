@@ -42,7 +42,7 @@ impl Bench {
     /// A build as cargo leaves it: the program, built with this folder's path written into it, and a library whose
     /// generated code is in its own target/.
     fn build(&self, wt: &str) {
-        let here = self.dir(wt).display().to_string();
+        let here = self.dir(wt).canonicalize().unwrap().display().to_string();
         self.write(wt, "target/quick/herdr-projects", &format!("built in {wt}"));
         self.write(wt, "target/quick/deps/sw-1a.d", &format!("# env-dep:CARGO_MANIFEST_DIR={here}\n"));
         self.write(wt, "target/quick/.fingerprint/herdr-projects-1a/lib-sw", "1");
