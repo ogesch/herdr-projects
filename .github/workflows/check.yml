@@ -35,6 +35,32 @@ env:
   TIMINGS: node_modules/.cache/shepherdr-test/timings.json
 
 jobs:
+  herdr-act:
+    name: native Herdr ACT integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: integrations/herdr-act
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            integrations/herdr-act/target
+          key: herdr-act-${{ runner.os }}-${{ hashFiles('integrations/herdr-act/Cargo.lock') }}
+      - name: Check native integration
+        run: npm run check -- --all
+
   types:
     name: types and build
     runs-on: ubuntu-latest

@@ -1,0 +1,2 @@
+<!-- Native status or disclosure mark; tinted by the current Herdr theme. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M5.2 5.2a2.8 2.8 0 1 1 4.5 2.2C8.5 8.2 8 8.5 8 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="13" r=".9" fill="currentColor"/></svg>
