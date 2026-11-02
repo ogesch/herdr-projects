@@ -100,7 +100,6 @@
                     "px": 190
                   },
                   "min": 90,
-                  "max": 500,
                   "content": {
                     "mod": "act-overview",
                     "props": {

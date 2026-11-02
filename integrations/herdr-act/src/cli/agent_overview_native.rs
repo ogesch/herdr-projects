@@ -18,28 +18,35 @@ pub fn snapshot()->Res<Value> {
     }
     let mut sessions=overview_native::from_app(&app,&details);
     let mut codex=json!({"refreshing":false,"updatedAt":null});
+    let mut started=false;
     let running=!crate::store::files::lock_free(codex_app_cache::LOCK);
     match codex_app_cache::read_at(&codex_app_cache::directory(),overview_events::now_ms() as i64,running) {
         Ok(mut cached)=>{
             if cached.refresh_due {
                 cached.refreshing=crate::housekeeping::spawn_loose(&["agents","refresh-codex"])>0;
+                started=cached.refreshing;
                 if !cached.refreshing {errors.push("Codex-Aktualisierung konnte nicht gestartet werden.".into());}
             }
             sessions.extend(crate::agents::overview::from_codex_app(&cached.threads));
             if let Some(error)=cached.error {errors.push(error);}
-            codex=json!({"refreshing":cached.refreshing,"updatedAt":cached.updated_at});
+            codex=json!({"refreshing":cached.refreshing,"updatedAt":cached.updated_at,"started":started,"refreshAfterMs":cached.refresh_after_ms});
         },
         Err(e)=>errors.push(e.to_string()),
     }
     let mut store=OverviewStore::default();
     if let Some(error)=store.error() {return Err(Error::new(error));}
     overview_events::enrich(&mut sessions,|id|store.completion(id))?;
+    if let Err(error)=crate::agents::overview_conversation::label_children(&mut sessions) {errors.push(error.to_string());}
     let mut changed=false;
     for session in &mut sessions {changed|=store.apply(session);session.preview.clear();}
     if changed {store.save()?;}
     sessions.sort_by(|a,b|a.project.cmp(&b.project).then_with(||a.title.cmp(&b.title)));
     let rows=overview_tree::rows(&sessions).iter().map(|r|json!({"session":r.session,"depth":r.depth,"group":r.group})).collect::<Vec<_>>();
-    Ok(json!({"rows":rows,"errors":errors,"codex":codex}))
+    let overview=crate::store::files::data_dir();
+    std::fs::create_dir_all(&overview)?;
+    let home=crate::agents::homes::codex_home();
+    let codex_home=home.is_dir().then_some(home);
+    Ok(json!({"rows":rows,"errors":errors,"codex":codex,"watch":{"overview":overview,"codex":codex_home}}))
 }
 pub fn update(raw:&str)->Res<()> {
     let request:Value=serde_json::from_str(raw)?;
@@ -59,6 +66,9 @@ pub fn update(raw:&str)->Res<()> {
     }
     if let Some(hidden)=request["hidden"].as_bool() {
         correction.hidden=hidden;correction.hidden_generation=request["generation"].as_u64();
+    }
+    if let Some(closed)=request["closed"].as_bool() {
+        correction.closed=closed;correction.closed_generation=request["generation"].as_u64();
     }
     if let Some(phase)=request["fields"]["phase"].as_str() {
         if phase.is_empty() {store.correction(id).act_phase=None;}

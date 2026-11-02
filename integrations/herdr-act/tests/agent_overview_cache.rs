@@ -21,10 +21,12 @@ fn cached_threads_stay_available_during_refresh_and_after_a_failure() {
     assert_eq!(failed.updated_at, Some(0));
     assert_eq!(failed.error.as_deref(), Some("Codex disconnected"));
     assert!(!failed.refresh_due);
+    assert_eq!(failed.refresh_after_ms, 25_000);
     cache::refresh_at(&directory, || 60_000, || Ok(vec![])).unwrap();
     let recovered = cache::read_at(&directory, 60_000, false).unwrap();
     assert!(recovered.threads.is_empty() && recovered.error.is_none());
     assert_eq!(recovered.updated_at, Some(60_000));
+    assert_eq!(cache::read_at(&directory, 90_000, false).unwrap().refresh_after_ms, 0);
 }
 
 #[test]

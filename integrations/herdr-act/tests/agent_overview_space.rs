@@ -70,7 +70,8 @@ globalThis.stub={...model,View:class{},div:node,v_flex:node,h_flex:node,svg:node
  layout:()=>({id:'sidebar',size:{px:400}}),setAgentOrder(){},
  run(command,args){commands.push([command,args]);if(command==='space.select')focus={space:args.id,tab:'tab-'+args.id,terminal:args.id==='A'?'t1':'t2'};},
  renderProjectTree(host,scoped){host.shownRows=scoped.rows;rendered=scoped.rows.map(r=>r.session.id);return node();}};
-const prefix='const {View,div,v_flex,h_flex,svg,shared,setShared,focused,spaces,panes,terminals,theme,props,machines,layout,setAgentOrder,run,renderProjectTree,liveSnapshot,spaceSnapshot,selected}=globalThis.stub;\n';
+globalThis.events=await import(data(fs.readFileSync(path.join(root,'native/act-overview/refresh-events.js'),'utf8').replace(/^import .*;\n/gm,'const {watchFolder,shared,setShared}=globalThis.stub;\n')));
+const prefix='const {nativeKey,queueRefresh,watchError}=globalThis.events;\nconst {View,div,v_flex,h_flex,svg,shared,setShared,focused,spaces,panes,terminals,theme,props,machines,layout,setAgentOrder,run,renderProjectTree,liveSnapshot,spaceSnapshot,selected}=globalThis.stub;\n';
 const overview=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'');
 const {default:Overview}=await import(data(prefix+overview)), view=new Overview();
 Object.assign(view,{mode:'list',snapshot,tab:'tab-A',space:'A',pages:{},error:''});
