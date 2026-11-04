@@ -127,7 +127,7 @@ export function renderProjectTree(host, snapshot, project, showHidden, current, 
     const history = host.historyExpanded.has(historyKey), count = group.rows.length - active.length;
     const rows = history ? group.rows : active;
     for (const row of rows) if (row.session.parent_id) host.parents.add(row.session.parent_id);
-    if (open && count) block.child(h_flex().id(historyKey).h(26).gap(4).items_center().cursor_pointer()
+    if (open && count) block.child(h_flex().id(historyKey).h(26).pl(18).gap(4).items_center().cursor_pointer()
       .accessibility_label(`Verlauf (${count})`).role("button").on_click((_e, cx) => {
         if (!host.historyExpanded.delete(historyKey)) host.historyExpanded.add(historyKey);
         cx.notify();
