@@ -37,7 +37,7 @@ function treeGuide(kind, t) {
   if (kind === "branch" || kind === "last") column.child(div().absolute().left(9).top(13).w(5).h(1).bg(t.border));
   return column;
 }
-function agentRow(row, host, current, t, project, archive) {
+function agentRow(row, host, current, t, project, archive, indent = 18) {
   const s = row.session, state = statusOf(s), chosen = current?.session.id === s.id;
   const hasChildren = host.parents.has(s.id);
   const open = !host.childrenFolded.has(s.id) && (!archive || host.historyExpanded.has(s.id));
@@ -64,7 +64,7 @@ function agentRow(row, host, current, t, project, archive) {
   const content = v_flex().min_w(0).flex_1().child(line);
   const reason = s.question || s.problem;
   if (reason) content.child(div().pl(39).pb(5).text_size(11.5).truncate().text_color(t[state.color] ?? t.muted).child(reason.split("\n")[0]));
-  const root = h_flex().id("agent-" + s.id).w_full().min_w(0).items_stretch().pl(4).pr(8)
+  const root = h_flex().id("agent-" + s.id).w_full().min_w(0).items_stretch().pl(indent).pr(8)
     .rounded(5).bg(chosen ? t.selected : t.chrome).text_color(t.foreground).cursor_pointer()
     .tooltip(summary).accessibility_label(summary).role("button")
     .hover(el => el.bg(chosen ? t.selected : t.hover)).on_click((_e, cx) => host.choose(row, cx))
@@ -137,7 +137,7 @@ export function renderProjectTree(host, snapshot, project, showHidden, current, 
     if (open) for (const family of families(rows)) {
       const visible = family.filter(row => rowVisible(row, host, false));
       host.guides = branchGuides(visible);
-      for (const row of visible) block.child(agentRow(row, host, current, t, group.name, false));
+      for (const row of visible) block.child(agentRow(row, host, current, t, group.name, false, history ? 32 : 18));
     }
     list.child(block);
   }
