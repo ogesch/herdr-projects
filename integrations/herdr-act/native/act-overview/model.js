@@ -80,6 +80,13 @@ export function spaceSnapshot(snapshot, space, panes, all = false) {
 }
 export const completion = s => s.manual_completion ?? s.task_complete;
 export const nextCompletion = s => s.manual_completion == null ? true : s.manual_completion ? false : null;
+const PROGRAMS = { claude: "Claude", codex: "Codex", gemini: "Gemini", opencode: "OpenCode", cursor: "Cursor", amp: "Amp", pi: "Pi" };
+// Program identity for the list's icon and the detail line; Herdr ships these icons in ~/.config/herdr-app/icons.
+export function programOf(s) {
+  if (s.source?.CodexApp) return { icon: "icons/codex.svg", name: "Codex App" };
+  const key = String(s.program ?? "").replace(/-code$/, "");
+  return { icon: PROGRAMS[key] ? `icons/${key}.svg` : "icons/agent.svg", name: PROGRAMS[key] ?? s.program ?? "Unbekannt" };
+}
 export const sourceName = s => s.source?.Native ? "Herdr-App" : s.source?.CodexApp ? "Codex-App" : "Beendete Sitzung";
 export function lightSnapshot(snapshot, id, terminal) {
   const current = selected(snapshot.rows, id, terminal);

@@ -167,6 +167,42 @@ fn skill_loading_reports_entry_and_does_not_pretend_the_phase_already_finished()
     assert_eq!(a.phases.len(),1);assert_eq!(a.phase.as_deref(),Some("Spec erstellen"));assert_eq!(a.phases[0].ended_at,None);
 }
 #[test]
+fn codex_subagents_enter_the_act_command_whose_skill_file_they_read() {
+    let _w=common::world();
+    let read=|id:&str,at|event("codex","child","PreToolUse",at,json!({"tool_name":"exec_command","tool_use_id":id,
+        "tool_input":{"cmd":"sed -n '1,200p' ~/.agents/skills/act-implement-flutter/SKILL.md ~/.agents/skills/act-flutter-development/SKILL.md"}}));
+    let mut child=Activity{parent:Some("codex-thread:root".into()),..Activity::default()};
+    events::fold::apply(&mut child,&read("a",AT));events::fold::apply(&mut child,&read("b",AT+1));
+    assert_eq!(child.phases.len(),1);assert_eq!(child.phases[0].command.as_deref(),Some("act-implement-flutter"));
+    assert_eq!(child.phase.as_deref(),Some("Implement"));
+    let mut root=Activity::default();
+    events::fold::apply(&mut root,&read("a",AT));
+    assert!(root.phases.is_empty() && root.phase.is_none());
+}
+#[test]
+fn coordinators_in_the_main_checkout_show_the_worktree_their_subagents_work_in() {
+    let w=common::world();let repo=w.base.join("repo");let tree=repo.join("worktrees/feat/139-sections");
+    fs::create_dir_all(repo.join(".git/worktrees/139-sections")).unwrap();fs::create_dir_all(tree.join("lib")).unwrap();
+    fs::write(repo.join(".git/worktrees/139-sections/HEAD"),"ref: refs/heads/feat/139-sections\n").unwrap();
+    fs::write(tree.join(".git"),format!("gitdir: {}\n",repo.join(".git/worktrees/139-sections").display())).unwrap();
+    assert_eq!(events::worktree::linked(&repo),None);
+    let found=events::worktree::linked(&tree.join("lib")).unwrap();
+    assert_eq!(found.path,tree.display().to_string());assert_eq!(found.branch.as_deref(),Some("feat/139-sections"));
+    let mut root=main_session("codex","root");root.project_path=repo.display().to_string();
+    let mut sessions=vec![root];
+    let activity=|key:&str,cwd:&std::path::Path,parent:Option<&str>|Activity{key:key.into(),provider:"codex".into(),cwd:cwd.display().to_string(),
+        parent:parent.map(str::to_owned),generation:Some(AT),..Activity::default()};
+    let root_key=sessions[0].id.clone();
+    events::project::apply(&mut sessions,&[activity(&root_key,&repo,None),activity("codex-thread:child",&tree,Some(&root_key))]);
+    let mut codex=Activity{key:"codex-thread:late".into(),parent:Some(root_key.clone()),cwd:repo.display().to_string(),..Activity::default()};
+    events::fold::apply(&mut codex,&event("codex","late","PreToolUse",AT,json!({"cwd":repo,"tool_name":"exec_command","tool_input":{"cmd":"flutter test","workdir":tree.join("lib")}})));
+    events::fold::apply(&mut codex,&event("codex","late","Stop",AT+1,json!({"cwd":repo})));
+    assert_eq!(codex.worktree.as_deref(),Some(tree.to_str().unwrap()));
+    let child=sessions.iter().find(|s|s.id=="codex-thread:child").unwrap();
+    assert_eq!(child.worktree.as_ref(),Some(&found));
+    assert_eq!(sessions.iter().find(|s|s.id==root_key).unwrap().worktree.as_ref(),Some(&found));
+}
+#[test]
 fn real_programs_agent_overview_hook_outputs_context_but_never_permission_decisions() {
     use std::{process::{Command,Stdio},io::Write};
     let w=common::world();let data=w.base.join("wire-events");

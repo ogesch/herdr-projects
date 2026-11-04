@@ -6,6 +6,7 @@ pub mod normalize;
 pub mod project;
 pub mod scope;
 pub mod shell;
+pub mod worktree;
 use super::overview::{OverviewSession, PhaseRecord};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs::{self, OpenOptions}, os::unix::{fs::{OpenOptionsExt, PermissionsExt}, io::AsRawFd}, path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
@@ -31,6 +32,7 @@ pub struct Event {
     pub phase_end: bool,
     pub ticket: Option<String>,
     pub complete: Option<bool>,
+    pub workdir: Option<String>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Pending {
@@ -58,6 +60,8 @@ pub struct Activity {
     pub complete: Option<bool>,
     pub generation: Option<u64>,
     pub turn_id: Option<String>,
+    /// Last linked git worktree the session worked in; Codex subagents keep the root cwd and pass it as workdir.
+    pub worktree: Option<String>,
     pub last_seen: u64,
 }
 pub fn session_key(provider: &str, id: &str) -> String {

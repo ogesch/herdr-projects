@@ -59,6 +59,8 @@ pub struct OverviewSession {
     pub activity_generation: Option<u64>,
     pub parent_id: Option<String>,
     pub source: SessionSource,
+    /// The linked git worktree the session works in, or for a coordinator the one its latest subagent works in.
+    pub worktree: Option<super::overview_events::worktree::Worktree>,
 }
 
 pub fn from_herdr(agents: &[Value], workspaces: &[Value]) -> Vec<OverviewSession> {
@@ -129,6 +131,7 @@ pub fn from_herdr(agents: &[Value], workspaces: &[Value]) -> Vec<OverviewSession
                 ticket: None,
                 act_phase: None,
                 phase_history: Vec::new(),
+                worktree: None,
                 manual_completion: None,
                 task_complete: None,
                 question: None,
@@ -185,6 +188,7 @@ pub fn from_codex_app(threads: &[Value]) -> Vec<OverviewSession> {
                 ticket: None,
                 act_phase: None,
                 phase_history: Vec::new(),
+                worktree: None,
                 manual_completion: None,
                 task_complete: None,
                 question: None,

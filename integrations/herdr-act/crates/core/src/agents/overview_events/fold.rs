@@ -15,11 +15,17 @@ pub fn apply(activity: &mut Activity, event: &Event) {
         activity.project = context.project;
     }
     if let Some(parent) = &event.parent { activity.parent = Some(parent.clone()); }
+    if fresh {
+        let seen = event.workdir.iter().chain([&event.cwd]).find_map(|d| super::worktree::linked(std::path::Path::new(d)));
+        if let Some(tree) = seen { activity.worktree = Some(tree.path); }
+    }
     if let Some(title) = event.title.as_ref().filter(|t| !t.is_empty() && fresh) {
         if activity.title.is_none() || (event.kind == "work" && activity.complete==Some(true)) { activity.title = Some(title.clone()); }
     }
     if let Some(ticket) = event.ticket.as_ref().filter(|_|fresh) { activity.ticket = Some(ticket.clone()); }
-    if let Some(command) = &event.command {
+    // Skill files are read for briefing too; only subagents treat a read as entering that ACT command.
+    let briefing = event.via == "SKILL.md" && event.parent.is_none() && activity.parent.is_none();
+    if let Some(command) = event.command.as_ref().filter(|_| !briefing) {
         if event.phase_end {
             if let Some(record) = activity.phases.iter_mut().rev().find(|p| p.command.as_deref() == Some(command) && p.recorded_at<=event.at) {
                 record.ended_at = Some(event.at);
@@ -30,7 +36,8 @@ pub fn apply(activity: &mut Activity, event: &Event) {
                 let same_turn = event.turn_id.is_some() && p.turn_id == event.turn_id;
                 p.command.as_ref() == Some(command) && p.ended_at.is_none()
                     && ((p.invocation.is_some() && p.invocation == event.tool_id)
-                        || (same_turn && p.source == "UserPromptSubmit" && event.via == "PreToolUse"))
+                        || (same_turn && p.source == "UserPromptSubmit" && event.via == "PreToolUse")
+                        || event.via == "SKILL.md")
             });
             if !duplicate {
                 activity.phases.push(PhaseRecord {

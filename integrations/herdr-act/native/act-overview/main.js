@@ -2,14 +2,16 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { theme, props, shared, setShared, focused, spaces, panes, terminals, run, exec, openOverlay, closeOverlay, setAgentOrder } from "herdr";
-import { runtime, selected, completion, nextCompletion, sourceName, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
+import { selected, nextCompletion, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
+import { sessionSummary } from "./session-summary.js";
+import { worktreesByTerminal } from "./worktrees.js";
 import { conversationView } from "./conversation-view.js";
-import { newQuestions } from "./tree-model.js";
-import { renderProjectTree } from "./tree-view.js";
+import { newQuestions } from "./tree-model.js"; import { renderProjectTree } from "./tree-view.js";
+import { CHOSEN, selectProject as chooseProject, followFocus, projectDetail } from "./project.js";
 import { closeSession } from "./lifecycle.js";
 import { nativeKey, queueRefresh, snapshotReceived, conversationChanged, watchError } from "./refresh-events.js";
 const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/3e292dbef62d74fbb012fe3fdab573c7e001a4fa/herdr-projects";
-const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces", REFRESH = "herdr-act.refresh";
+const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces", REFRESH = "herdr-act.refresh", WORKTREES = "herdr-act.worktrees", DETAIL_PX = 112;
 function button(id, title, action, t) {
   return div().id(id).px(9).py(5).rounded(6).text_size(11.5).text_color(t.muted).cursor_pointer().role("button").accessibility_label(title).tab_index(0)
     .on_key_down((event, cx) => { if (["enter", "space"].includes(event.keystroke)) { cx.stop_propagation(); action(event, cx); } })
@@ -56,6 +58,7 @@ export default class ActOverview extends View {
         if (result.code !== 0) throw new Error(result.stderr || "Datenquelle nicht erreichbar");
         this.snapshot = liveSnapshot(JSON.parse(result.stdout), terminals());
         snapshotReceived(this, this.snapshot, cx, revision);
+        setShared(WORKTREES, worktreesByTerminal(this.snapshot.rows));
         const attention = newQuestions(this.snapshot.rows, this.seenQuestions);
         for (const project of attention.projects) this.projectFolded.delete(project);
         for (const id of attention.agents) this.childrenFolded.delete(id);
@@ -89,14 +92,14 @@ export default class ActOverview extends View {
       this.refresh(cx);
       return;
     }
-    setShared(SELECTION, s.id);
+    setShared(SELECTION, s.id); setShared(CHOSEN, null);
     setShared(SNAPSHOT, lightSnapshot(snapshot, s.id, s.source?.Native?.terminal ?? focused()?.terminal));
     if (s.parent_id && embeddedChild(s, snapshot.rows)) {
       run("layout.hide", { id: "act-terminal" });
       run("layout.resize", { id: "act-context", weight: 1 });
     } else if (s.source?.Native) {
       run("layout.show", { id: "act-terminal" });
-      run("layout.resize", { id: "act-context", px: 190 });
+      run("layout.resize", { id: "act-context", px: DETAIL_PX });
       const pane = panes().find(p => p.terminal === s.source.Native.terminal);
       if (pane) run("pane.focus", { pane: pane.pane });
       else run("terminal.peek", { terminal: s.source.Native.terminal });
@@ -122,7 +125,7 @@ export default class ActOverview extends View {
         }
         setShared(SELECTION, null);
         run("layout.show", { id: "act-terminal" });
-        run("layout.resize", { id: "act-context", px: 190 });
+        run("layout.resize", { id: "act-context", px: DETAIL_PX });
         run("agent.focus", { terminal });
         this.error = "";
       } catch (e) { this.error = e.message ?? String(e); }
@@ -152,7 +155,7 @@ export default class ActOverview extends View {
         setShared("herdr-act.hidden", false);
         setShared(REFRESH, (shared(REFRESH) ?? 0) + 1);
         run("layout.show", { id: "act-terminal" });
-        run("layout.resize", { id: "act-context", px: 190 });
+        run("layout.resize", { id: "act-context", px: DETAIL_PX });
         closeOverlay(overlay);
       } catch (e) { this.error = e.message ?? String(e); }
       this.closing = false; cx.notify();
@@ -175,6 +178,9 @@ export default class ActOverview extends View {
   fold(group, cx) {
     if (!this.folded.delete(group)) this.folded.add(group);
     localStorage.setItem("project-tree.sections", JSON.stringify([...this.folded])); cx.notify();
+  }
+  selectProject(group, cx) {
+    chooseProject(group, cx); run("layout.show", { id: "act-terminal" }); run("layout.resize", { id: "act-context", px: DETAIL_PX });
   }
   foldProject(project, cx) {
     if (!this.projectFolded.delete(project)) this.projectFolded.add(project);
@@ -206,38 +212,36 @@ export default class ActOverview extends View {
     });
   }
   detail(rows, cx) {
-    const t = theme(), row = selected(rows, shared(SELECTION), focused()?.terminal);
+    const t = theme(), chosen = shared(CHOSEN);
+    if (chosen && !shared(SELECTION)) return projectDetail(this, chosen, t, cx);
+    const row = selected(rows, shared(SELECTION), focused()?.terminal);
     if (!row) return div().p(18).text_color(t.muted).child("Wähle links eine Agentensitzung.");
-    const s = row.session, complete = completion(s), child = embeddedChild(s, rows);
+    const s = row.session, child = embeddedChild(s, rows);
     const owner = child ? ownerRow(s, rows) : null;
     if (child) conversationChanged(this, s.id, cx);
     if (child && this.conversation?.id !== s.id) this.readConversation(cx);
     if (!child && this.conversation?.id) { this.conversation = null; this.conversationRequest = (this.conversationRequest ?? 0) + 1; }
-    return v_flex().id("act-details").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(7).bg(t.surface).text_color(t.foreground).text_size(12)
-      .child(h_flex().gap(8).items_center().child(div().min_w(0).flex_1().font_semibold().truncate().child(s.title))
-        .child(button("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } }), t))
-        .when(!child && Boolean(s.source?.Native || s.source?.CodexApp), el => el.child(button("close", "Schließen …", () => openOverlay({
-          mod: "act-overview", kind: "dialog", width: 460, props: { mode: "close", session: s }
-        }), t))))
-      .child(div().text_color(t.muted).child(`${s.project} · ${s.program} · ${sourceName(s)}`))
-      .child(div().child(`${runtime(s.runtime_status)} · Auftrag: ${complete === true ? "Fertig" : complete === false ? "Nicht abgeschlossen" : "Unbekannt"}`))
-      .child(div().child(`ACT: ${s.act_phase ?? "Unbekannt"} · ${s.phase_source ?? "Keine Phasenmeldung"}`))
-      .child(div().text_color(t.muted).child(`Spec/Ticket: ${s.ticket ?? "Unbekannt"}`))
-      .when(child, el => el.child(h_flex().gap(8)
-        .when(Boolean(owner), el => el.child(button("parent-agent", "Zum Hauptagenten", (_e, cx) => this.choose(owner, cx), t)))
-        .child(button("refresh-conversation", "Verlauf aktualisieren", (_e, cx) => this.readConversation(cx), t))))
-      .when(Boolean(s.source?.CodexApp), el => el.child(v_flex().items_start().gap(4)
-        .child(button("open-herdr", this.opening ? "Wird geöffnet …" : "In Herdr öffnen", (_e, cx) => this.openInHerdr(s, cx), t))
-        .child(button("open-desktop", "In Codex Desktop öffnen", (_e, cx) => this.openInDesktop(s, cx), t))))
-      .when(Boolean(this.error), el => el.child(div().text_color(t.ansi1).child(this.error)))
-      .when(Boolean(s.question), el => el.child(div().text_color(t.ansi3).child(s.question)))
-      .when(Boolean(s.problem), el => el.child(div().text_color(t.ansi1).child(s.problem)))
-      .child(h_flex().gap(6)
-        .child(button("workflow", `${this.history ? "▾" : "▸"} Verlauf (${s.phase_history.length})`, (_e, cx) => { this.history = !this.history; cx.notify(); }, t))
-        .child(button("complete", s.manual_completion == null ? "Als fertig markieren" : s.manual_completion ? "Als offen markieren" : "Automatisch erkennen", (_e, cx) => this.mutate({ id: s.id, completion: nextCompletion(s), generation: s.activity_generation }, cx), t))
-        .child(button("hide", s.hidden ? "Einblenden" : "Ausblenden", (_e, cx) => this.mutate({ id: s.id, hidden: !s.hidden, generation: s.activity_generation }, cx), t)))
-      .when(this.history, el => el.children([...s.phase_history].reverse().map((phase, i) => div().id("phase-" + i).text_color(t.muted).child(`${phase.phase} · ${phase.command ?? "manuell"} · ${phase.source}${phase.ended_at ? " · beendet" : ""}`))))
-      .when(child, el => el.child(conversationView(s.id, this.conversation, t, (id, label, action) => button(id, label, action, t), cx => {
+    const reason = this.error || s.question || s.problem, reasonColor = this.error || s.problem ? t.ansi1 : t.ansi3;
+    const quiet = (id, label, action) => button(id, label, action, t);
+    return v_flex().id("act-details").size_full().min_w(0).min_h(0).overflow_y_scrollbar().px(16).pt(10).pb(8).gap(6).bg(t.surface).text_color(t.foreground).text_size(12)
+      .child(h_flex().min_w(0).h(28).gap(4).items_center()
+        .child(div().min_w(0).flex_1().font_semibold().text_size(15).truncate().tooltip(s.title).child(s.title))
+        .child(quiet("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } })).flex_none())
+        .when(!child && Boolean(s.source?.Native || s.source?.CodexApp), el => el.child(quiet("close", "Schließen …", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 460, props: { mode: "close", session: s } }))
+          .flex_none().text_color(t.dim).hover(st => st.bg(t.hover).text_color(t.ansi1)))))
+      .child(sessionSummary(s, t))
+      .child(h_flex().min_w(0).gap(4).items_center()
+        .child(div().id("act-reason").min_w(0).flex_1().truncate().text_size(12.5).text_color(reason ? reasonColor : t.dim)
+          .tooltip(reason || "Keine offene Frage").child(reason ? reason.split("\n")[0] : ""))
+        .when(child && Boolean(owner), el => el.child(quiet("parent-agent", "Zum Hauptagenten", (_e, cx) => this.choose(owner, cx))))
+        .when(child, el => el.child(quiet("refresh-conversation", "Verlauf aktualisieren", (_e, cx) => this.readConversation(cx))))
+        .when(Boolean(s.source?.CodexApp), el => el.child(quiet("open-herdr", this.opening ? "Wird geöffnet …" : "In Herdr öffnen", (_e, cx) => this.openInHerdr(s, cx)))
+          .child(quiet("open-desktop", "In Codex Desktop öffnen", (_e, cx) => this.openInDesktop(s, cx))))
+        .child(quiet("workflow", `${this.history ? "▾" : "▸"} Verlauf (${s.phase_history.length})`, (_e, cx) => { this.history = !this.history; cx.notify(); }))
+        .child(quiet("complete", s.manual_completion == null ? "Als fertig markieren" : s.manual_completion ? "Als offen markieren" : "Automatisch erkennen", (_e, cx) => this.mutate({ id: s.id, completion: nextCompletion(s), generation: s.activity_generation }, cx)))
+        .child(quiet("hide", s.hidden ? "Einblenden" : "Ausblenden", (_e, cx) => this.mutate({ id: s.id, hidden: !s.hidden, generation: s.activity_generation }, cx))))
+      .when(this.history, el => el.child(v_flex().pt(4).border_t(1).border_color(t.border).children([...s.phase_history].reverse().map((phase, i) => div().id("phase-" + i).py(2).text_color(t.muted).child(`${phase.phase} · ${phase.command ?? "manuell"} · ${phase.source}${phase.ended_at ? " · beendet" : ""}`)))))
+      .when(child, el => el.child(conversationView(s.id, this.conversation, t, quiet, cx => {
         this.conversation = { ...this.conversation, assignmentExpanded: !this.conversation.assignmentExpanded }; cx.notify();
       })));
   }
@@ -268,9 +272,9 @@ export default class ActOverview extends View {
     if (this.mode === "list" && (this.tab !== focus?.tab || this.space !== focus?.space)) {
       if (this.space !== focus?.space && !all) { setShared(PROJECT, ""); this.pages = {}; }
       this.space = focus?.space;
-      this.tab = focus?.tab; setShared(SELECTION, null);
+      this.tab = focus?.tab; setShared(SELECTION, null); followFocus(focus);
       run("layout.show", { id: "act-terminal" });
-      run("layout.resize", { id: "act-context", px: 190 });
+      run("layout.resize", { id: "act-context", px: DETAIL_PX });
     }
     const space = spaces().find(item => item.id === focus?.space), t = theme();
     const full = liveSnapshot(this.mode === "list" ? this.snapshot : (shared(SNAPSHOT) ?? { rows: [], errors: [] }), terminals());
@@ -279,16 +283,17 @@ export default class ActOverview extends View {
     const project = shared(PROJECT) ?? "", hidden = shared("herdr-act.hidden") === true;
     if (this.mode === "projects") return v_flex().w(300).max_h(500).overflow_y_scrollbar().p(8).bg(t.popover)
       .children(["", ...(snapshot.projects ?? [])].map(p => button("project-" + p, p || "Alle Projekte", () => { setShared(PROJECT, p); closeOverlay(props().overlay); }, t)));
-    const current = selected(snapshot.rows, shared(SELECTION), focused()?.terminal);
-    const list = renderProjectTree(this, snapshot, project, hidden, current, t);
+    const current = shared(CHOSEN) ? null : selected(snapshot.rows, shared(SELECTION), focused()?.terminal);
+    const list = renderProjectTree(this, snapshot, project, hidden, current, t, shared(CHOSEN)?.name ?? "");
     setAgentOrder(this.shownRows.filter(r => r.session.source?.Native).map(r => r.session.source.Native.terminal));
     return v_flex().id("act-root").size_full().min_w(0).min_h(0).bg(t.chrome).text_color(t.foreground).text_size(13)
-      .child(h_flex().px(14).pt(16).pb(8).items_center().child(div().flex_1().font_semibold().text_size(15).child("ACT · Agenten"))
-        .child(button("refresh", "↻", (_e, cx) => this.refresh(cx), t)))
-      .child(h_flex().px(8).gap(4).child(button("projects", `Projekt: ${project || "Alle"} ▾`, () => openOverlay({ mod: "act-overview", kind: "popup", width: 300, height: 450, props: { mode: "projects" } }), t))
+      .child(h_flex().h(30).pl(14).pr(8).items_center().border_t(1).border_color(t.border)
+        .child(div().flex_1().font_semibold().text_size(11.5).text_color(t.muted).child("Agenten"))
+        .child(button("refresh", "↻", (_e, cx) => this.refresh(cx), t).tooltip("Aktualisieren")))
+      .child(h_flex().px(8).pb(2).gap(2).child(button("projects", `Projekt: ${project || "Alle"} ▾`, () => openOverlay({ mod: "act-overview", kind: "popup", width: 300, height: 450, props: { mode: "projects" } }), t))
         .child(button("hidden", hidden ? "Alle anzeigen ✓" : "Ausgeblendete", () => setShared("herdr-act.hidden", !hidden), t)))
       .when(snapshot.rows.length > 0, el => el.child(list))
-      .when(!snapshot.rows.length, el => el.child(div().p(14).text_color(t.muted).child(this.busy ? "Agentendaten werden geladen …" : all ? "Keine Agentensitzungen gefunden." : "Keine Agenten mit diesem Space verbunden. Gespeicherte Gespräche findest du unter „All Spaces“.")))
+      .when(!snapshot.rows.length, el => el.child(div().p(14).text_color(t.muted).child(this.busy ? "Agentendaten werden geladen …" : all ? "Keine Agentensitzungen gefunden." : "Keine Agenten mit diesem Space verbunden. Gespeicherte Gespräche findest du unter „Alle Spaces“.")))
       .when(Boolean(snapshot.codex?.refreshing), el => el.child(div().p(10).text_size(11).text_color(t.muted).child("Codex-Daten werden aktualisiert …")))
       .when(Boolean(this.error || watchError(this) || snapshot.errors.length), el => el.child(div().p(10).text_size(11).text_color(t.ansi1).child(this.error || watchError(this) || snapshot.errors.join(" · "))));
   }

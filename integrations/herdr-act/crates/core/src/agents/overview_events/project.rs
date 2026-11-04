@@ -64,6 +64,7 @@ pub fn apply(sessions: &mut Vec<OverviewSession>, activities: &[Activity]) {
         }
         if !changed {break;}
     }
+    super::worktree::attach(sessions, activities);
 }
 fn fields(session: &mut OverviewSession, activity: &Activity, child: bool) {
     if child || matches!(session.runtime_status.as_str(), "" | "unknown" | "notLoaded") {
@@ -107,7 +108,7 @@ pub fn retain_completed(sessions:&mut Vec<OverviewSession>,activities:&[Activity
         sessions.push(OverviewSession {
             id:activity.key.clone(),title:activity.title.clone().unwrap_or_else(||"Abgeschlossener Auftrag".into()),program:activity.provider.clone(),
             preview:String::new(),project:activity.project.clone(),project_path:activity.cwd.clone(),ticket:activity.ticket.clone(),
-            act_phase:activity.phase.clone(),phase_history:activity.phases.clone(),phase_source:Some("ACT hook".into()),
+            act_phase:activity.phase.clone(),phase_history:activity.phases.clone(),worktree:None,phase_source:Some("ACT hook".into()),
             manual_completion:manual(&activity.key),task_complete:activity.complete,question:None,needs_user:false,problem:None,
             hidden:false,runtime_status:"closed".into(),group:OverviewGroup::Done,completion_seq:None,
             activity_generation:activity.generation,parent_id:None,source:SessionSource::Ended,

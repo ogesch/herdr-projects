@@ -20,6 +20,11 @@ fn command_in_prompt(prompt: &str) -> Option<String> {
     let pattern = Regex::new(r"(?m)^\s*(?:[/\$]|<command-name>/)(act-[a-z-]+|land-feature)(?:\s|$|</command-name>)").unwrap();
     pattern.captures(prompt).map(|c| c[1].to_owned()).filter(|c| phase(c).is_some())
 }
+/// Codex has no Skill tool: an ACT skill is entered by reading its SKILL.md through a shell or script tool.
+fn command_in_skill_read(input: &Value) -> Option<String> {
+    let pattern = Regex::new(r"skills/((?:act-[a-z-]+)|land-feature)/SKILL\.md").unwrap();
+    pattern.captures_iter(&input.to_string()).map(|c| c[1].to_owned()).find(|c| phase(c).is_some())
+}
 fn prompt_text(prompt:&str)->&str {
     let trimmed=prompt.trim();
     if trimmed.starts_with("<hc from=") && trimmed.ends_with("</hc>") {
@@ -56,6 +61,7 @@ pub fn from_hook(provider: &str, input: &Value, at: u64) -> Result<Vec<Event>, S
         tool_id: input["tool_use_id"].as_str().or(input["tool_call_id"].as_str()).map(str::to_owned),
         turn_id: input["turn_id"].as_str().map(str::to_owned), ..Default::default()
     };
+    event.workdir = tool_input["workdir"].as_str().or(tool_input["cwd"].as_str()).filter(|w| w.starts_with('/')).map(str::to_owned);
     if !matches!(event_name,"SubagentStart"|"SubagentStop") {
         if let Some(child)=input["agent_id"].as_str().filter(|id|*id!=session && !id.is_empty()) {
             event.parent=Some(event.key.clone());
@@ -78,6 +84,9 @@ pub fn from_hook(provider: &str, input: &Value, at: u64) -> Result<Vec<Event>, S
                     .map(|s| s.trim_start_matches(['/', '$']).rsplit(':').next().unwrap_or(s).to_owned())
                     .filter(|c| phase(c).is_some());
                 event.ticket=super::context::resolve(&event.cwd,tool_input["args"].as_str().unwrap_or("")).ticket;
+            } else if let Some(command) = command_in_skill_read(&tool_input) {
+                event.command = Some(command);
+                event.via = "SKILL.md".into();
             }
             if tool.contains("AskUserQuestion") || tool.ends_with("request_user_input") || tool.ends_with("request_user_input_async") {
                 event.text = Some(question(&tool_input));

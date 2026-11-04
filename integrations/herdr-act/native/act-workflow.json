@@ -97,9 +97,9 @@
                   "id": "act-context",
                   "type": "block",
                   "size": {
-                    "px": 190
+                    "px": 112
                   },
-                  "min": 90,
+                  "min": 80,
                   "content": {
                     "mod": "act-overview",
                     "props": {
@@ -157,7 +157,7 @@
           "id": "status",
           "type": "block",
           "content": {
-            "mod": "workspace-status"
+            "mod": "act-status"
           },
           "size": {
             "px": 28

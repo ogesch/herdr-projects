@@ -19,6 +19,7 @@ mod agent_overview_events;
 mod agent_overview_hooks;
 mod agent_overview_lifecycle;
 mod agent_overview_native;
+mod agent_overview_project;
 mod agent_overview_shell;
 mod agent_overview_space;
 mod agent_efforts;

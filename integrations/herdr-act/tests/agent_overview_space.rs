@@ -29,7 +29,7 @@ assert.deepEqual(m.spaceSnapshot(snapshot,undefined,panes).rows,[]);
 assert.equal(m.spaceSnapshot(snapshot,undefined,panes,true),snapshot,'All Spaces keeps unassigned desktop history');
 const w={name:'tools',folder:'/repo/old',tabs:[{id:'A'}]}, cwd=context.place(w,[{tab:'B',cwd:'/other'},{tab:'A',cwd:'/repo/cheekily/worktrees/login'}]);
 assert.equal(cwd,'/repo/cheekily/worktrees/login');
-assert.deepEqual(context.describeSpace({w,g:{name:'cheekily',branch:'feat/login'},cwd,known:true}),{repository:'Repo: cheekily · feat/login',folder:cwd});
+assert.deepEqual(context.describeSpace({w,g:{name:'cheekily',branch:'feat/login'},cwd,known:true}),{repository:'Repo: cheekily · feat/login',folder:cwd,line:'feat/login · '+context.short(cwd)});
 assert.equal(context.describeSpace({w,g:null,known:false}).repository,'Repo: unbekannt');
 assert.equal(context.describeSpace({w,g:null,known:true}).repository,'Kein Git-Repo');
 assert.equal(context.place(w,[]),w.folder);
@@ -72,7 +72,7 @@ globalThis.stub={...model,View:class{},div:node,v_flex:node,h_flex:node,svg:node
  renderProjectTree(host,scoped){host.shownRows=scoped.rows;rendered=scoped.rows.map(r=>r.session.id);return node();}};
 globalThis.events=await import(data(fs.readFileSync(path.join(root,'native/act-overview/refresh-events.js'),'utf8').replace(/^import .*;\n/gm,'const {watchFolder,shared,setShared}=globalThis.stub;\n')));
 const prefix='const {nativeKey,queueRefresh,watchError}=globalThis.events;\nconst {View,div,v_flex,h_flex,svg,shared,setShared,focused,spaces,panes,terminals,theme,props,machines,layout,setAgentOrder,run,renderProjectTree,liveSnapshot,spaceSnapshot,selected}=globalThis.stub;\n';
-const overview=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'');
+const overview=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n');
 const {default:Overview}=await import(data(prefix+overview)), view=new Overview();
 Object.assign(view,{mode:'list',snapshot,tab:'tab-A',space:'A',pages:{},error:''});
 view.render(cx);assert.deepEqual(rendered,['a']);
@@ -82,7 +82,7 @@ globalThis.stub.describeSpace=context.describeSpace;
 const {renderSpaces}=await import(data(prefix+'const {describeSpace}=globalThis.stub;\n'+spaceSource));
 const host={pressed:null,over:null,machines:[],folded:new Set(),shown:new Set(['A','B']),focus:new Map([['A',{}],['B',{}]]),allFocus:{},
  ordered:()=>globalThis.stub.spaces().map((w,i)=>({w,i,g:null,tree:null,cwd:'/repo',known:true}))};
-renderSpaces(host);assert.equal(labels.get('space-all'),'All Spaces');
+renderSpaces(host);assert.equal(labels.get('space-all'),'Alle Spaces');
 view.pages.Saved=2;
 handlers.get('space-all:on_click:')({},cx);view.render(cx);assert.deepEqual(rendered,['a','b','desktop']);assert.deepEqual(view.pages,{});
 handlers.get('space-A:on_mouse_down:left')({},cx);handlers.get('space-A:on_mouse_up:left')({},cx);
