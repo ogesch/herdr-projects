@@ -2,7 +2,7 @@
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { pageFamilies, families, programOf } from "./model.js";
-import { projectTree, statusOf, phaseText, commandText } from "./tree-model.js";
+import { projectTree, currentRows, branchGuides, statusOf, phaseText, commandText } from "./tree-model.js";
 
 const ICONS = "mods/act-overview/icons/";
 function mark(status, t, id, size = 12) {
@@ -30,6 +30,13 @@ function rowVisible(row, host, archive) {
   }
   return true;
 }
+function treeGuide(kind, t) {
+  const column = div().w(14).flex_none().relative();
+  if (kind !== "blank") column.child(div().absolute().left(9).top(0).w(1).bg(t.border)
+    .when(kind === "last", el => el.h(13)).when(kind !== "last", el => el.bottom(0)));
+  if (kind === "branch" || kind === "last") column.child(div().absolute().left(9).top(13).w(5).h(1).bg(t.border));
+  return column;
+}
 function agentRow(row, host, current, t, project, archive) {
   const s = row.session, state = statusOf(s), chosen = current?.session.id === s.id;
   const hasChildren = host.parents.has(s.id);
@@ -54,12 +61,14 @@ function agentRow(row, host, current, t, project, archive) {
       .tooltip(program.name).accessibility_label(program.name).child(image(program.icon).size(13)))
     .child(div().id("phase-" + s.id).w(80).flex_none().text_right().text_size(11).truncate()
       .text_color(known ? t.muted : t.dim).tooltip(phaseTip).child(phase));
-  const root = v_flex().id("agent-" + s.id).w_full().min_w(0).pl(4 + Math.min(row.depth, 4) * 14).pr(8)
+  const content = v_flex().min_w(0).flex_1().child(line);
+  const reason = s.question || s.problem;
+  if (reason) content.child(div().pl(39).pb(5).text_size(11.5).truncate().text_color(t[state.color] ?? t.muted).child(reason.split("\n")[0]));
+  const root = h_flex().id("agent-" + s.id).w_full().min_w(0).items_stretch().pl(4).pr(8)
     .rounded(5).bg(chosen ? t.selected : t.chrome).text_color(t.foreground).cursor_pointer()
     .tooltip(summary).accessibility_label(summary).role("button")
-    .hover(el => el.bg(chosen ? t.selected : t.hover)).on_click((_e, cx) => host.choose(row, cx)).child(line);
-  const reason = s.question || s.problem;
-  if (reason) root.child(div().pl(39).pb(5).text_size(11.5).truncate().text_color(t[state.color] ?? t.muted).child(reason.split("\n")[0]));
+    .hover(el => el.bg(chosen ? t.selected : t.hover)).on_click((_e, cx) => host.choose(row, cx))
+    .children((host.guides.get(s.id) ?? []).map(kind => treeGuide(kind, t))).child(content);
   host.shownRows.push(row);
   return root;
 }
@@ -90,7 +99,9 @@ function savedSection(list, rows, host, current, t) {
   const section = v_flex().w_full().min_w(0).mt(6).border_t(1).border_color(t.border).pt(4).child(head);
   if (open) {
     const page = pageFamilies(rows, host.pages[key] ?? 0, 8);
-    for (const row of page.rows) if (rowVisible(row, host, true)) section.child(agentRow(row, host, current, t, null, true));
+    const visible = page.rows.filter(row => rowVisible(row, host, true));
+    host.guides = branchGuides(visible);
+    for (const row of visible) section.child(agentRow(row, host, current, t, null, true));
     if (page.pages > 1) section.child(h_flex().pl(22).h(26).gap(8).items_center()
       .child(pageButton("previous-" + key, true, page.page === 0, cx => { host.pages[key] = page.page - 1; cx.notify(); }, t))
       .child(div().text_size(11).text_color(t.muted).child(`Seite ${page.page + 1} / ${page.pages}`))
@@ -107,14 +118,26 @@ export function renderProjectTree(host, snapshot, project, showHidden, current, 
   }
   const tree = host.tree;
   host.shownRows = [];
+  host.parents = new Set(tree.saved.map(row => row.session.parent_id).filter(Boolean));
   const list = v_flex().id("project-tree").min_w(0).min_h(0).flex_1().overflow_y_scrollbar().px(6).pb(8).gap(1);
   for (const group of tree.projects) {
     const open = !host.projectFolded.has(group.name);
     const block = v_flex().w_full().min_w(0).child(projectHeader(group, open, chosenProject === group.name, host, t));
-    // Finished families keep their children folded until opened, as the former Fertig section did.
-    if (open) for (const family of families(group.rows)) {
-      const archive = family[0].group === "Done" || statusOf(family[0].session).kind === "done";
-      for (const row of family) if (rowVisible(row, host, archive)) block.child(agentRow(row, host, current, t, group.name, archive));
+    const active = currentRows(group.rows), historyKey = "project-history-" + group.name;
+    const history = host.historyExpanded.has(historyKey), count = group.rows.length - active.length;
+    const rows = history ? group.rows : active;
+    for (const row of rows) if (row.session.parent_id) host.parents.add(row.session.parent_id);
+    if (open && count) block.child(h_flex().id(historyKey).h(26).gap(4).items_center().cursor_pointer()
+      .accessibility_label(`Verlauf (${count})`).role("button").on_click((_e, cx) => {
+        if (!host.historyExpanded.delete(historyKey)) host.historyExpanded.add(historyKey);
+        cx.notify();
+      }).child(h_flex().w(18).h(24).flex_none().items_center().justify_center()
+        .child(svg(ICONS + (history ? "chevron-down.svg" : "chevron-right.svg")).size(10).text_color(t.dim)))
+      .child(div().text_size(11).text_color(t.muted).child(`Verlauf (${count})`)));
+    if (open) for (const family of families(rows)) {
+      const visible = family.filter(row => rowVisible(row, host, false));
+      host.guides = branchGuides(visible);
+      for (const row of visible) block.child(agentRow(row, host, current, t, group.name, false));
     }
     list.child(block);
   }

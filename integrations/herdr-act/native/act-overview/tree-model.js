@@ -34,6 +34,38 @@ function stored(row) {
     && !s.question && !s.needs_user && !s.problem;
 }
 const finished = family => family[0].group === "Done" || statusOf(family[0].session).kind === "done";
+// Keep ancestors as context, including when a finished parent has a live child.
+export function currentRows(rows) {
+  const byId = new Map(rows.map(row => [row.session.id, row]));
+  const visible = new Set();
+  for (const row of rows) {
+    const state = statusOf(row.session).kind;
+    if (!["working", "question", "problem"].includes(state)
+      && !(row.session.runtime_status === "waiting" && completion(row.session) !== true)) continue;
+    for (let current = row; current && !visible.has(current.session.id); current = byId.get(current.session.parent_id)) {
+      visible.add(current.session.id);
+    }
+  }
+  return rows.filter(row => visible.has(row.session.id));
+}
+// Derive connectors from visible siblings so folded branches leave no dangling lines.
+export function branchGuides(rows) {
+  const byId = new Map(rows.map(row => [row.session.id, row.session]));
+  const parents = new Set(), following = new Set(), guides = new Map();
+  for (const { session } of [...rows].reverse()) {
+    if (parents.has(session.parent_id)) following.add(session.id);
+    parents.add(session.parent_id);
+  }
+  for (const { session } of rows) {
+    const columns = [], visited = new Set([session.id]);
+    for (let node = session; byId.has(node.parent_id) && !visited.has(node.parent_id); node = byId.get(node.parent_id)) {
+      visited.add(node.parent_id);
+      columns.unshift(node === session ? (following.has(node.id) ? "branch" : "last") : (following.has(node.id) ? "stem" : "blank"));
+    }
+    guides.set(session.id, columns);
+  }
+  return guides;
+}
 function urgency(families) {
   let status = STATES.unknown;
   for (const row of families.flat()) {
