@@ -89,7 +89,7 @@ Object.assign(globalThis,{View:class{},shared:k=>values.get(k),setShared:(k,v)=>
  exec:(_binary,args)=>new Promise(resolve=>requests.push({args,resolve})),
 });
 Object.assign(globalThis,await import(data(fs.readFileSync(path.join(root,'native/act-overview/refresh-events.js'),'utf8').replace(/^import .*;\n/gm,''))));
-const {default:Overview}=await import(data(fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'')));
+const {default:Overview}=await import(data(fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n')));
 const pending=[], cx={timer:{after:(ms,fn)=>timers.push({ms,fn})},notify:()=>{},spawn:fn=>pending.push(fn(cx))};
 const view=new Overview(); view.snapshot=snapshot; view.projectFolded=new Set(); view.childrenFolded=new Set();
 view.refresh(cx); view.refresh(cx); view.refresh(cx);
@@ -116,7 +116,7 @@ fn real_programs_overview_and_conversation_keep_only_a_slow_safety_timer() {
 const root=process.argv[1], data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 let mode='list';
 Object.assign(globalThis,{View:class{},props:()=>({mode}),focused:()=>({tab:'tab',space:'space'}),localStorage:{getItem:()=>null}});
-const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'');
+const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n');
 const {default:Overview}=await import(data(source));
 for(mode of ['list','detail']) {
  const intervals=[], view=new Overview(); view.refresh=()=>{};

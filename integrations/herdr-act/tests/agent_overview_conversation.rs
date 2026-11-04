@@ -111,7 +111,7 @@ const rows=[{session:parent},...['a','b','c'].map(id=>({session:{id:'codex-threa
 const values=new Map([['herdr-act.snapshot',{rows}]]), requests=[], pending=[];
 Object.assign(globalThis,model,{View:class{},shared:k=>values.get(k),focused:()=>({terminal:'t1'}),
 exec:(_bin,args)=>new Promise((resolve,reject)=>requests.push({id:args[2],resolve,reject}))});
-const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'');
+const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n');
 const {default:Overview}=await import(data(source)), view=Object.create(Overview.prototype);
 const cx={notify(){},spawn(fn){const task=fn(cx);pending.push(task);return task;}};
 const load=id=>{values.set('herdr-act.selected','codex-thread:'+id);view.readConversation(cx);return pending.pop();};
@@ -145,7 +145,7 @@ const rows=[{session:parent},{session:child}], values=new Map(), commands=[];
 Object.assign(globalThis,model,{View:class{},run:(...a)=>commands.push(a),
  shared:k=>values.get(k),setShared:(k,v)=>values.set(k,v),focused:()=>({terminal:'t1'}),
  terminals:()=>[{address:'t1',state:'live'}],panes:()=>[{pane:'p1',terminal:'t1'}]});
-const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'');
+const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n');
 const ActOverview=(await import(data(source))).default, view=Object.create(ActOverview.prototype);
 view.snapshot={rows,errors:[]};
 view.choose(rows[1],{});

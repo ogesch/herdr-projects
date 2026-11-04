@@ -9,7 +9,7 @@ function find(node, id) {
   for (const child of node?.children ?? []) { const result = find(child, id); if (result) return result; }
 }
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
-const rowHeight = () => 64;
+const rowHeight = () => 44;
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 
 // A space speaks up only when something in it needs you.
@@ -41,7 +41,7 @@ function grouped(host, t, collapsed) {
       return layout === "loading" || (!layout && host.machines.some(k => k.name === m && k.state === "connected"))
         || spaces().some(s => (s.machine ?? null) === m && !host.shown.has(s.id));
     };
-    const loadingRow = m => div().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(8).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Loading…");
+    const loadingRow = m => div().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(8).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Lädt …");
     if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw);
     const machineNames = [null, ...remote];
     return machineNames.flatMap((m) => {
@@ -57,7 +57,7 @@ function grouped(host, t, collapsed) {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(13).flex_none())
-        .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
+        .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "Dieser Computer"))
           .when(!connected, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
           .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
             .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", m ? { machine: m } : {}); }).child("+")))
@@ -66,7 +66,7 @@ function grouped(host, t, collapsed) {
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(8).gap(7).items_center().rounded(7)
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", m ? { machine: m } : {}))
-        .child(svg("mods/workspace-chrome/plus.svg").size(12)).when(!collapsed, el => el.child("New space there"));
+        .child(svg("mods/workspace-chrome/plus.svg").size(12)).when(!collapsed, el => el.child("Neuer Space hier"));
       return [head, ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : empty])];
     });
   }
@@ -137,8 +137,7 @@ function row(host, item, t) {
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
           .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
           .child(g ? gitTail(g, t) : div().flex_1()))
-        .child(div().pl(tree ? 44 : 27).text_size(10.5).text_color(t.muted).truncate().child(details.repository))
-        .child(div().pl(tree ? 44 : 27).text_size(10.5).text_color(t.dim).truncate().child(details.folder));
+        .child(div().pl(tree ? 44 : 27).text_size(11).text_color(t.dim).truncate().child(details.line));
   }
 
 function compact(host, { w, i }, t) {
@@ -173,13 +172,13 @@ export function renderSpaces(host) {
     if (changed) setShared("space.colors", kept);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
       .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
-        .when(!collapsed, el => el.child("Spaces"))
+        .when(!collapsed, el => el.child(div().font_semibold().text_color(t.muted).child("Spaces")))
         .child(div().id("space-all").px(8).py(4).rounded(6).cursor_pointer().role("button").tab_index(0).track_focus(host.allFocus)
-          .accessibility_label("All Spaces").tooltip("Alle Agenten und gespeicherten Gespräche anzeigen")
+          .accessibility_label("Alle Spaces").tooltip("Alle Agenten und gespeicherten Gespräche anzeigen")
           .hover(el => el.bg(t.hover).text_color(t.foreground)).when(all, el => el.bg(t.selected).text_color(t.foreground))
           .on_click(() => selectScope(true))
           .on_key_down((event, cx) => { if (["enter", "space"].includes(event.keystroke)) { cx.stop_propagation(); selectScope(true); } })
-          .child(collapsed ? "All" : "All Spaces"))
+          .child(collapsed ? "Alle" : "Alle Spaces"))
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
           .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
       .child(v_flex().flex_1().min_h(0).px(8).pb(14).overflow_y_scrollbar().mode("always")
