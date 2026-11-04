@@ -2,7 +2,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { pageFamilies } from "./model.js";
-import { projectTree, statusOf, phaseText } from "./tree-model.js";
+import { projectTree, statusOf, phaseText, commandText } from "./tree-model.js";
 
 const ICONS = "mods/act-overview/icons/";
 function mark(status, t, id) {
@@ -41,15 +41,17 @@ function agentRow(row, host, current, t, project, archive) {
   };
   const program = s.source?.CodexApp ? "Codex App" : ({ codex: "Codex", claude: "Claude" })[s.program] ?? s.program;
   const title = s.project !== project ? `${s.project} · ${s.title}` : s.title;
-  const phase = phaseText(s.act_phase);
+  const command = s.phase_history?.at(-1)?.command;
+  const phase = row.depth ? commandText(s) : phaseText(s.act_phase);
+  const pillTip = row.depth ? `ACT: ${command ?? "kein ACT-Befehl"}` : `ACT: ${s.act_phase ?? "unbekannt"}`;
   const summary = `${s.title} · ${s.project} · ${program} · ${state.label} · ACT: ${s.act_phase ?? "unbekannt"}`;
   const line = h_flex().w_full().min_w(0).h(row.depth ? 27 : 32).items_center().gap(5)
     .child(hasChildren ? disclosure(s.id, open, toggle, t) : div().w(20).flex_none())
     .child(mark(state, t, s.id))
     .child(div().min_w(0).flex_1().truncate().font_medium().text_size(row.depth ? 12 : 13).child(title))
     .child(div().w(program === "Codex App" ? 64 : 44).flex_none().text_size(11).text_color(t.muted).truncate().child(program))
-    .child(div().w(72).flex_none().px(5).py(2).rounded(4).bg(t.raised)
-      .text_size(11).text_color(t.muted).truncate().tooltip(`ACT: ${s.act_phase ?? "unbekannt"}`).child(phase));
+    .child(div().w(96).flex_none().px(5).py(2).rounded(4).when(Boolean(phase), el => el.bg(t.raised))
+      .text_size(11).text_color(t.muted).truncate().tooltip(pillTip).child(phase));
   const selectedFill = /^#[0-9a-f]{6}$/i.test(t.ansi4) ? t.ansi4 + "18" : t.selected;
   const root = v_flex().id("agent-" + s.id).w_full().min_w(0).pl(22 + Math.min(row.depth, 4) * 12).pr(7)
     .rounded(4).bg(chosen ? selectedFill : t.chrome).text_color(t.foreground).cursor_pointer()

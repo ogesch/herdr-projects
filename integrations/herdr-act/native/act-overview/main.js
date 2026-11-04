@@ -2,6 +2,7 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { theme, props, shared, setShared, focused, spaces, panes, terminals, run, exec, openOverlay, closeOverlay, setAgentOrder } from "herdr";
+import { worktreesByTerminal } from "./worktrees.js";
 import { runtime, selected, completion, nextCompletion, sourceName, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
 import { conversationView } from "./conversation-view.js";
 import { newQuestions } from "./tree-model.js";
@@ -10,6 +11,7 @@ import { closeSession } from "./lifecycle.js";
 import { nativeKey, queueRefresh, snapshotReceived, conversationChanged, watchError } from "./refresh-events.js";
 const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/3e292dbef62d74fbb012fe3fdab573c7e001a4fa/herdr-projects";
 const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces", REFRESH = "herdr-act.refresh";
+const WORKTREES = "herdr-act.worktrees";
 function button(id, title, action, t) {
   return div().id(id).px(9).py(5).rounded(6).text_size(11.5).text_color(t.muted).cursor_pointer().role("button").accessibility_label(title).tab_index(0)
     .on_key_down((event, cx) => { if (["enter", "space"].includes(event.keystroke)) { cx.stop_propagation(); action(event, cx); } })
@@ -56,6 +58,7 @@ export default class ActOverview extends View {
         if (result.code !== 0) throw new Error(result.stderr || "Datenquelle nicht erreichbar");
         this.snapshot = liveSnapshot(JSON.parse(result.stdout), terminals());
         snapshotReceived(this, this.snapshot, cx, revision);
+        setShared(WORKTREES, worktreesByTerminal(this.snapshot.rows));
         const attention = newQuestions(this.snapshot.rows, this.seenQuestions);
         for (const project of attention.projects) this.projectFolded.delete(project);
         for (const id of attention.agents) this.childrenFolded.delete(id);
@@ -223,6 +226,8 @@ export default class ActOverview extends View {
       .child(div().child(`${runtime(s.runtime_status)} · Auftrag: ${complete === true ? "Fertig" : complete === false ? "Nicht abgeschlossen" : "Unbekannt"}`))
       .child(div().child(`ACT: ${s.act_phase ?? "Unbekannt"} · ${s.phase_source ?? "Keine Phasenmeldung"}`))
       .child(div().text_color(t.muted).child(`Spec/Ticket: ${s.ticket ?? "Unbekannt"}`))
+      .when(Boolean(s.worktree), el => el.child(div().text_color(t.muted).truncate()
+        .tooltip(s.worktree.path).child(`Branch: ${s.worktree.branch ?? "losgelöst"} · Worktree: ${s.worktree.path}`)))
       .when(child, el => el.child(h_flex().gap(8)
         .when(Boolean(owner), el => el.child(button("parent-agent", "Zum Hauptagenten", (_e, cx) => this.choose(owner, cx), t)))
         .child(button("refresh-conversation", "Verlauf aktualisieren", (_e, cx) => this.readConversation(cx), t))))

@@ -20,7 +20,12 @@ export function statusOf(session) {
   return STATES.unknown;
 }
 export function phaseText(phase) {
-  return ({ "Spec erstellen": "Spec", "Create Issues": "Issues", "Land Feature": "Land", "Außerhalb ACT": "Freie Arbeit" })[phase] ?? phase ?? "ACT?";
+  return ({ "Spec erstellen": "Spec", "Create Issues": "Issues", "Land Feature": "Land", "Außerhalb ACT": "Freie Arbeit" })[phase] ?? phase ?? "";
+}
+// Subagents show the ACT command they are running; no reported command stays blank.
+export function commandText(session) {
+  const command = session.phase_history?.at(-1)?.command ?? "";
+  return command.replace(/^act-/, "");
 }
 function stored(row) {
   const s = row.session;
