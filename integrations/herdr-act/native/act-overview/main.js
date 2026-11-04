@@ -2,7 +2,8 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { theme, props, shared, setShared, focused, spaces, panes, terminals, run, exec, openOverlay, closeOverlay, setAgentOrder } from "herdr";
-import { runtime, selected, completion, nextCompletion, sourceName, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
+import { selected, completion, nextCompletion, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
+import { sessionSummary } from "./session-summary.js";
 import { conversationView } from "./conversation-view.js";
 import { newQuestions } from "./tree-model.js";
 import { renderProjectTree } from "./tree-view.js";
@@ -213,28 +214,25 @@ export default class ActOverview extends View {
     if (child) conversationChanged(this, s.id, cx);
     if (child && this.conversation?.id !== s.id) this.readConversation(cx);
     if (!child && this.conversation?.id) { this.conversation = null; this.conversationRequest = (this.conversationRequest ?? 0) + 1; }
-    return v_flex().id("act-details").size_full().min_h(0).overflow_y_scrollbar().p(14).gap(7).bg(t.surface).text_color(t.foreground).text_size(12)
-      .child(h_flex().gap(8).items_center().child(div().min_w(0).flex_1().font_semibold().truncate().child(s.title))
-        .child(button("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } }), t))
+    return v_flex().id("act-details").size_full().min_w(0).min_h(0).overflow_y_scrollbar().p(14).gap(12).bg(t.surface).text_color(t.foreground).text_size(12)
+      .child(h_flex().min_w(0).flex_wrap().gap(8).items_center().child(div().min_w(0).flex_basis(280).flex_grow(1).font_semibold().text_size(14).truncate().tooltip(s.title).child(s.title))
+        .child(button("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } }), t).flex_none().bg(t.chrome).text_color(t.foreground))
         .when(!child && Boolean(s.source?.Native || s.source?.CodexApp), el => el.child(button("close", "Schließen …", () => openOverlay({
           mod: "act-overview", kind: "dialog", width: 460, props: { mode: "close", session: s }
-        }), t))))
-      .child(div().text_color(t.muted).child(`${s.project} · ${s.program} · ${sourceName(s)}`))
-      .child(div().child(`${runtime(s.runtime_status)} · Auftrag: ${complete === true ? "Fertig" : complete === false ? "Nicht abgeschlossen" : "Unbekannt"}`))
-      .child(div().child(`ACT: ${s.act_phase ?? "Unbekannt"} · ${s.phase_source ?? "Keine Phasenmeldung"}`))
-      .child(div().text_color(t.muted).child(`Spec/Ticket: ${s.ticket ?? "Unbekannt"}`))
-      .when(child, el => el.child(h_flex().gap(8)
+        }), t).flex_none().text_color(t.ansi1))))
+      .child(sessionSummary(s, t))
+      .when(child, el => el.child(h_flex().flex_wrap().gap(8)
         .when(Boolean(owner), el => el.child(button("parent-agent", "Zum Hauptagenten", (_e, cx) => this.choose(owner, cx), t)))
         .child(button("refresh-conversation", "Verlauf aktualisieren", (_e, cx) => this.readConversation(cx), t))))
-      .when(Boolean(s.source?.CodexApp), el => el.child(v_flex().items_start().gap(4)
+      .when(Boolean(s.source?.CodexApp), el => el.child(h_flex().flex_wrap().gap(8)
         .child(button("open-herdr", this.opening ? "Wird geöffnet …" : "In Herdr öffnen", (_e, cx) => this.openInHerdr(s, cx), t))
         .child(button("open-desktop", "In Codex Desktop öffnen", (_e, cx) => this.openInDesktop(s, cx), t))))
       .when(Boolean(this.error), el => el.child(div().text_color(t.ansi1).child(this.error)))
       .when(Boolean(s.question), el => el.child(div().text_color(t.ansi3).child(s.question)))
       .when(Boolean(s.problem), el => el.child(div().text_color(t.ansi1).child(s.problem)))
-      .child(h_flex().gap(6)
-        .child(button("workflow", `${this.history ? "▾" : "▸"} Verlauf (${s.phase_history.length})`, (_e, cx) => { this.history = !this.history; cx.notify(); }, t))
-        .child(button("complete", s.manual_completion == null ? "Als fertig markieren" : s.manual_completion ? "Als offen markieren" : "Automatisch erkennen", (_e, cx) => this.mutate({ id: s.id, completion: nextCompletion(s), generation: s.activity_generation }, cx), t))
+      .child(h_flex().flex_wrap().gap(6).items_center()
+        .child(button("workflow", `${this.history ? "▾" : "▸"} Verlauf (${s.phase_history.length})`, (_e, cx) => { this.history = !this.history; cx.notify(); }, t).mr_auto())
+        .child(button("complete", s.manual_completion == null ? "Als fertig markieren" : s.manual_completion ? "Als offen markieren" : "Automatisch erkennen", (_e, cx) => this.mutate({ id: s.id, completion: nextCompletion(s), generation: s.activity_generation }, cx), t).bg(t.chrome).text_color(complete === true ? t.muted : t.ansi2))
         .child(button("hide", s.hidden ? "Einblenden" : "Ausblenden", (_e, cx) => this.mutate({ id: s.id, hidden: !s.hidden, generation: s.activity_generation }, cx), t)))
       .when(this.history, el => el.children([...s.phase_history].reverse().map((phase, i) => div().id("phase-" + i).text_color(t.muted).child(`${phase.phase} · ${phase.command ?? "manuell"} · ${phase.source}${phase.ended_at ? " · beendet" : ""}`))))
       .when(child, el => el.child(conversationView(s.id, this.conversation, t, (id, label, action) => button(id, label, action, t), cx => {
