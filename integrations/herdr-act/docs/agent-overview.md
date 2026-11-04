@@ -2,6 +2,8 @@
 
 ## macOS app
 
+The ACT layout hides the top tab bar by default. `Cmd+T` starts a plain shell without an agent. `Cmd+P` opens the tab, Space and agent picker, including plain terminals; `Ctrl+Tab` and `Ctrl+Shift+Tab` cycle tabs. Existing terminals and sessions remain open. To restore the bar temporarily, run `herdr-app do layout.show --id tabs`.
+
 Codex children that share their parent's terminal open a read-only conversation view when selected. It shows the recorded delegated task and the latest 80 visible messages, updates from conversation file events, and returns to the live parent terminal with “Zum Hauptagenten”. Long tasks can be expanded; unavailable or failed reads have explicit states. Late replies never replace a newly selected child. Child labels use their recorded task names instead of “default”; the label index avoids rereading every conversation on each overview refresh.
 
 The overview reacts to native terminal/Space changes and watches local hook records, corrections, the Codex catalog and cached daemon snapshots. Changes are batched; a selected child also follows its recorded parent transcript. Events received during an active read trigger one follow-up. Codex catalog changes during the 30-second cache cooldown schedule one delayed refresh. A 60-second safety check retries failed watchers and recovers missed events; there is no five-second polling. On platforms that cannot watch the configured tree, the sidebar reports the fallback.
