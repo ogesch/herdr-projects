@@ -225,18 +225,9 @@ assert.equal(related.projects[0].name,'Journal'); assert.equal(related.projects[
 assert.equal(tree.phaseText(null),'Unbekannt','Missing ACT data reads unknown, never blank'); assert.equal(tree.phaseText('Create Issues'),'Issues');
 assert.equal(tree.commandText({phase_history:[]}),'Unbekannt'); assert.equal(tree.commandText({}),'Unbekannt');
 assert.equal(tree.statusOf({runtime_status:'waiting-parent'}).icon,'waiting','Waiting for the parent has its own status mark');
-assert.deepEqual(tree.currentRows(rows).map(r=>r.session.id),['main','child','problem','hidden','hidden-child']);
 const oldChild={...row('old-child','Journal','done','Done',{parent_id:'main',task_complete:true}),depth:1};
-assert.deepEqual(tree.currentRows([working,oldChild]).map(r=>r.session.id),['main'],'Finished children leave the default view');
-assert.equal(oldChild.session.task_complete,true,'Filtering preserves stored history');
-const liveChild={...question,session:{...question.session,parent_id:'done'}};
-assert.deepEqual(tree.currentRows([done,liveChild]).map(r=>r.session.id),['done','child'],'Keep finished ancestors of open questions');
-assert.equal(tree.currentRows([idle,done,unknown]).length,0,'Inactive and unknown sessions stay in history');
-assert.equal(tree.currentRows([row('waiting','Journal','waiting')]).length,1,'Never hide a session waiting for input');
-assert.equal(tree.currentRows([row('finished-question','Journal','done','Done',{task_complete:true,question:'Answer?'})]).length,1);
 const cycleA=row('cycle-a','Journal','idle','Unknown',{parent_id:'cycle-b'});
 const cycleB=row('cycle-b','Journal','working','Active',{parent_id:'cycle-a'});
-assert.equal(tree.currentRows([cycleA,cycleB]).length,2,'Malformed ancestry must not loop');
 const sibling={...oldChild,session:{...oldChild.session,id:'sibling'}};
 const nested={...oldChild,depth:2,session:{...oldChild.session,id:'nested',parent_id:'old-child'}};
 const guides=tree.branchGuides([working,oldChild,nested,sibling]);

@@ -1,5 +1,5 @@
 //! Native app snapshots and the same durable corrections used by the terminal overview.
-use crate::{agents::{codex_app_cache,overview_native,overview_events,overview_store::OverviewStore,overview_tree},err::{Error,Res},json::{Js,Value}};
+use crate::{agents::{codex_app_cache,overview_native,overview_retire,overview_events,overview_store::OverviewStore,overview_tree},err::{Error,Res},json::{Js,Value}};
 use serde_json::json;
 use std::process::Command;
 
@@ -40,6 +40,7 @@ pub fn snapshot()->Res<Value> {
     let mut changed=false;
     for session in &mut sessions {changed|=store.apply(session);session.preview.clear();}
     if changed {store.save()?;}
+    overview_retire::retire(&mut sessions);
     sessions.sort_by(|a,b|a.project.cmp(&b.project).then_with(||a.title.cmp(&b.title)));
     let rows=overview_tree::rows(&sessions).iter().map(|r|json!({"session":r.session,"depth":r.depth,"group":r.group})).collect::<Vec<_>>();
     let overview=crate::store::files::data_dir();
