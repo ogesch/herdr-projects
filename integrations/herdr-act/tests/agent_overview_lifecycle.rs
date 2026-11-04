@@ -6,14 +6,14 @@ fn real_programs_native_agent_close_is_targeted_confirmed_and_error_safe() {
     let _w = common::world();
     let script = r#"import fs from 'node:fs'; import path from 'node:path'; import assert from 'node:assert/strict';
 const root=process.argv[1], data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const {closeSession}=await import(data(fs.readFileSync(path.join(root,'native/act-overview/lifecycle.js'),'utf8')));
+const {closeSession,closeEffect}=await import(data(fs.readFileSync(path.join(root,'native/act-overview/lifecycle.js'),'utf8')));
 const model=await import(data(fs.readFileSync(path.join(root,'native/act-overview/model.js'),'utf8')));
 const thread='11111111-1111-4111-8111-111111111111', id='codex-thread:'+thread, binary='/observer';
 const child={id,title:'default',parent_id:'parent',source:{CodexApp:{thread_id:thread}},activity_generation:7,runtime_status:'waiting-parent',phase_history:[]};
-let calls=[], current=child, fail='', propsValue={}, overlayClosed=[], pending=[];
+let others=[], calls=[], current=child, fail='', propsValue={}, overlayClosed=[], pending=[];
 async function exec(command,args) {
   calls.push([command,args]);
-  if(command===binary && args[1]==='native-snapshot') return {code:0,stdout:JSON.stringify({rows:[{session:current}],errors:[]})};
+  if(command===binary && args[1]==='native-snapshot') return {code:0,stdout:JSON.stringify({rows:[{session:current},...others],errors:[]})};
   return {code:fail ? 1 : 0,stderr:fail,stdout:''};
 }
 await closeSession(child,exec,binary);
@@ -31,6 +31,17 @@ assert.deepEqual(calls[1],['hc',['kill','--','remote/t7']]);
 calls=[]; current={...child,source:{CodexApp:{thread_id:'--all'}}};
 await assert.rejects(closeSession(current,exec,binary),/Sitzung/);
 assert.equal(calls.length,1,'Malformed identifiers must never reach the shutdown command');
+const parent={id:'parent',title:'Coordinator',source:{Native:{terminal:'t1z'}},phase_history:[]};
+calls=[]; others=[{session:parent}]; current={...child,source:{Native:{terminal:'t1z'}}};
+await closeSession(current,exec,binary);
+assert.deepEqual(calls.map(c=>c[0]),[binary,binary],'A subagent inside its parent terminal closes in the overview only');
+assert.deepEqual(JSON.parse(calls[1][1][2]),{id,closed:true,hidden:true,generation:7});
+assert.match(closeEffect(current,[{session:parent},{session:current}]),/Hauptagent läuft weiter/);
+assert.match(closeEffect({...child,parent_id:null,source:{Native:{terminal:'t1z'}}},[]),/Terminal/);
+calls=[]; others=[]; current={...child,source:'Ended'};
+await closeSession(current,exec,binary);
+assert.deepEqual(calls.map(c=>c[0]),[binary,binary],'An ended session with nothing to stop still leaves the list');
+current=child; calls=calls.slice(0,1); // the detail checks below count new calls after one earlier call
 
 const handlers=new Map(), labels=new Map(), values=new Map(), texts=new Map(), colors=new Map(), backgrounds=new Map(); let opened;
 const links=new Set(), hrefs=new Map();
@@ -49,7 +60,7 @@ function node() {
   };}}); return el;
 }
 const cx={notify(){},stop_propagation(){},spawn(fn){const p=fn(cx);pending.push(p);return p;}};
-globalThis.stub={...model,closeSession,View:class{},div:node,v_flex:node,h_flex:node,theme:()=>({}),
+globalThis.stub={...model,closeSession,closeEffect,View:class{},div:node,v_flex:node,h_flex:node,theme:()=>({}),
  Link:{new:id=>{links.add(id);return node().id(id);}},image:node,
  props:()=>propsValue,shared:k=>values.get(k),setShared:(k,v)=>values.set(k,v),focused:()=>({}),
  openOverlay:v=>{opened=v;},closeOverlay:id=>overlayClosed.push(id),exec,
@@ -85,7 +96,9 @@ for(const ticket of [undefined,'#128','docs/spec.md','javascript:alert(1)','file
   assert(!hrefs.has('session-ticket'));
   assert.equal(texts.get('session-ticket'),ticket??'Unbekannt');
 }
-const prefix='const {View,div,v_flex,h_flex,theme,props,shared,setShared,focused,openOverlay,closeOverlay,exec,terminals,spaces,panes,run,setAgentOrder,newQuestions,renderProjectTree,runtime,selected,completion,nextCompletion,sourceName,lightSnapshot,liveSnapshot,spaceSnapshot,embeddedChild,ownerRow,closeSession,sessionSummary}=globalThis.stub;\n';
+const closeSource=fs.readFileSync(path.join(root,'native/act-overview/close-view.js'),'utf8').replace(/^import .*;\n/gm,'');
+Object.assign(globalThis.stub,await import(data('const {div,v_flex,h_flex,theme,props,shared,exec,openOverlay,closeOverlay,closeSession,closeEffect}=globalThis.stub;\n'+closeSource)));
+const prefix='const {closeDialog,agentMenu,openClose,openMenu,View,div,v_flex,h_flex,theme,props,shared,setShared,focused,openOverlay,closeOverlay,exec,terminals,spaces,panes,run,setAgentOrder,newQuestions,renderProjectTree,runtime,selected,completion,nextCompletion,sourceName,lightSnapshot,liveSnapshot,spaceSnapshot,embeddedChild,ownerRow,closeSession,sessionSummary}=globalThis.stub;\n';
 const source=fs.readFileSync(path.join(root,'native/act-overview/main.js'),'utf8').replace(/^import .*;\n/gm,'').replace(/^/,'const {CHOSEN,chooseProject,followFocus,projectDetail}={CHOSEN:"herdr-act.chosen-project",chooseProject(){},followFocus(){},projectDetail(){}};\n')
  .replace(/^const BINARY = .*;$/m,'const BINARY = "/observer";');
 const {default:Overview}=await import(data(prefix+source));
@@ -107,6 +120,11 @@ assert.match(dialog.error,/archive rejected/);assert.deepEqual(overlayClosed,[])
 assert.equal(calls.filter(c=>c[0]===binary && c[1][1]==='native-update').length,0);
 calls=[];fail='';pending=[];dialog.render(cx);handlers.get('confirm-close:on_click')({},cx);await Promise.all(pending);
 assert.deepEqual(overlayClosed,['confirmation']);
+propsValue={mode:'menu',session:child,overlay:'menu'};overlayClosed=[];opened=null;
+const menu=new Overview();menu.mode='menu';menu.render(cx);
+assert.equal(labels.get('menu-close'),'Unteragent schließen …');
+handlers.get('menu-close:on_click')({},cx);
+assert.deepEqual(overlayClosed,['menu']);assert.equal(opened.props.mode,'close','The context menu leads to the same confirmation');
 "#;
     let out = std::process::Command::new("node").args(["--input-type=module", "-e", script])
         .arg(env!("CARGO_MANIFEST_DIR")).output().unwrap();

@@ -1,8 +1,9 @@
 // Quiet project tree: selectable project headings, one status mark per agent, program icon, right-aligned ACT step.
+// Agent families hang directly under their project; a right click offers to close an agent.
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { pageFamilies, families, programOf } from "./model.js";
-import { projectTree, currentRows, branchGuides, statusOf, phaseText, commandText } from "./tree-model.js";
+import { projectTree, branchGuides, statusOf, phaseText, commandText } from "./tree-model.js";
 
 const ICONS = "mods/act-overview/icons/";
 function mark(status, t, id, size = 12) {
@@ -68,6 +69,7 @@ function agentRow(row, host, current, t, project, archive, indent = 18) {
     .rounded(5).bg(chosen ? t.selected : t.chrome).text_color(t.foreground).cursor_pointer()
     .tooltip(summary).accessibility_label(summary).role("button")
     .hover(el => el.bg(chosen ? t.selected : t.hover)).on_click((_e, cx) => host.choose(row, cx))
+    .on_mouse_down("right", () => host.menu(s))
     .children((host.guides.get(s.id) ?? []).map(kind => treeGuide(kind, t))).child(content);
   host.shownRows.push(row);
   return root;
@@ -123,21 +125,12 @@ export function renderProjectTree(host, snapshot, project, showHidden, current, 
   for (const group of tree.projects) {
     const open = !host.projectFolded.has(group.name);
     const block = v_flex().w_full().min_w(0).child(projectHeader(group, open, chosenProject === group.name, host, t));
-    const active = currentRows(group.rows), historyKey = "project-history-" + group.name;
-    const history = host.historyExpanded.has(historyKey), count = group.rows.length - active.length;
-    const rows = history ? group.rows : active;
+    const rows = group.rows;
     for (const row of rows) if (row.session.parent_id) host.parents.add(row.session.parent_id);
-    if (open && count) block.child(h_flex().id(historyKey).h(26).pl(18).gap(4).items_center().cursor_pointer()
-      .accessibility_label(`Verlauf (${count})`).role("button").on_click((_e, cx) => {
-        if (!host.historyExpanded.delete(historyKey)) host.historyExpanded.add(historyKey);
-        cx.notify();
-      }).child(h_flex().w(18).h(24).flex_none().items_center().justify_center()
-        .child(svg(ICONS + (history ? "chevron-down.svg" : "chevron-right.svg")).size(10).text_color(t.dim)))
-      .child(div().text_size(11).text_color(t.muted).child(`Verlauf (${count})`)));
     if (open) for (const family of families(rows)) {
       const visible = family.filter(row => rowVisible(row, host, false));
       host.guides = branchGuides(visible);
-      for (const row of visible) block.child(agentRow(row, host, current, t, group.name, false, history ? 32 : 18));
+      for (const row of visible) block.child(agentRow(row, host, current, t, group.name, false));
     }
     list.child(block);
   }

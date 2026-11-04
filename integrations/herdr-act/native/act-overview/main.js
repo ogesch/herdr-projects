@@ -8,7 +8,7 @@ import { worktreesByTerminal } from "./worktrees.js";
 import { conversationView } from "./conversation-view.js";
 import { newQuestions } from "./tree-model.js"; import { renderProjectTree } from "./tree-view.js";
 import { CHOSEN, selectProject as chooseProject, followFocus, projectDetail } from "./project.js";
-import { closeSession } from "./lifecycle.js";
+import { closeDialog, agentMenu, openClose, openMenu } from "./close-view.js";
 import { nativeKey, queueRefresh, snapshotReceived, conversationChanged, watchError } from "./refresh-events.js";
 const BINARY = "/Users/oliver/.herdr-projects/data/agent-overview/bin/3e292dbef62d74fbb012fe3fdab573c7e001a4fa/herdr-projects";
 const SNAPSHOT = "herdr-act.snapshot", SELECTION = "herdr-act.selected", PROJECT = "herdr-act.project", ALL_SPACES = "herdr-act.all-spaces", REFRESH = "herdr-act.refresh", WORKTREES = "herdr-act.worktrees", DETAIL_PX = 112;
@@ -142,39 +142,13 @@ export default class ActOverview extends View {
       cx.notify();
     });
   }
-  closeSession(cx) {
-    if (this.closing) return;
-    this.closing = true;
-    this.error = "";
-    cx.notify();
-    const session = props().session, overlay = props().overlay;
-    cx.spawn(async cx => {
-      try {
-        await closeSession(session, exec, BINARY);
-        setShared(SELECTION, null);
-        setShared("herdr-act.hidden", false);
-        setShared(REFRESH, (shared(REFRESH) ?? 0) + 1);
-        run("layout.show", { id: "act-terminal" });
-        run("layout.resize", { id: "act-context", px: DETAIL_PX });
-        closeOverlay(overlay);
-      } catch (e) { this.error = e.message ?? String(e); }
-      this.closing = false; cx.notify();
-    });
+  closeDialog() {
+    return closeDialog(this, button, () => {
+      setShared(SELECTION, null); setShared("herdr-act.hidden", false); setShared(REFRESH, (shared(REFRESH) ?? 0) + 1);
+      run("layout.show", { id: "act-terminal" }); run("layout.resize", { id: "act-context", px: DETAIL_PX });
+    }, BINARY);
   }
-  closeDialog(cx) {
-    const t = theme(), s = props().session;
-    return v_flex().w(460).p(20).gap(12).bg(t.popover).text_color(t.foreground)
-      .child(div().font_semibold().child(s.parent_id ? "Unteragent schließen?" : "Agent schließen?"))
-      .child(div().text_size(13).child(s.title))
-      .child(div().text_size(12).text_color(t.muted).child(s.source?.Native
-        ? "Das Terminal und seine Terminal-Unteragenten werden beendet. Laufende Arbeit wird unterbrochen."
-        : "Die Codex-Sitzung wird geschlossen und archiviert. Ihr Verlauf bleibt erhalten."))
-      .when(Boolean(this.error), el => el.child(div().text_size(12).text_color(t.ansi1).child(this.error)))
-      .child(h_flex().justify_end().gap(8)
-        .child(button("cancel", "Abbrechen", () => closeOverlay(props().overlay), t).disabled(Boolean(this.closing)))
-        .child(button("confirm-close", this.closing ? "Wird geschlossen …" : "Schließen", (_e, cx) => this.closeSession(cx), t)
-          .text_color(t.ansi1).disabled(Boolean(this.closing))));
-  }
+  menu(session) { openMenu(session); }
   fold(group, cx) {
     if (!this.folded.delete(group)) this.folded.add(group);
     localStorage.setItem("project-tree.sections", JSON.stringify([...this.folded])); cx.notify();
@@ -227,8 +201,7 @@ export default class ActOverview extends View {
       .child(h_flex().min_w(0).h(28).gap(4).items_center()
         .child(div().min_w(0).flex_1().font_semibold().text_size(15).truncate().tooltip(s.title).child(s.title))
         .child(quiet("edit", "Korrigieren", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 500, props: { mode: "edit", session: s } })).flex_none())
-        .when(!child && Boolean(s.source?.Native || s.source?.CodexApp), el => el.child(quiet("close", "Schließen …", () => openOverlay({ mod: "act-overview", kind: "dialog", width: 460, props: { mode: "close", session: s } }))
-          .flex_none().text_color(t.dim).hover(st => st.bg(t.hover).text_color(t.ansi1)))))
+        .child(quiet("close", "Schließen …", () => openClose(s)).flex_none().text_color(t.dim).hover(st => st.bg(t.hover).text_color(t.ansi1))))
       .child(sessionSummary(s, t))
       .child(h_flex().min_w(0).gap(4).items_center()
         .child(div().id("act-reason").min_w(0).flex_1().truncate().text_size(12.5).text_color(reason ? reasonColor : t.dim)
@@ -259,6 +232,7 @@ export default class ActOverview extends View {
   render(cx) {
     if (this.mode === "edit") return this.editor(cx);
     if (this.mode === "close") return this.closeDialog(cx);
+    if (this.mode === "menu") return agentMenu();
     if (this.mode === "list") {
       const key = nativeKey(spaces(), panes(), terminals());
       if (this.nativeState !== undefined && this.nativeState !== key) queueRefresh(this, cx);
