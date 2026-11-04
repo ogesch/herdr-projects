@@ -12,7 +12,7 @@ export function openMenu(session) {
 }
 function item(id, label, action, t, color) {
   return div().id(id).px(10).py(6).rounded(5).text_size(12.5).text_color(color ?? t.foreground).cursor_pointer()
-    .role("menuitem").accessibility_label(label).hover(s => s.bg(t.hover)).on_click(action).child(label);
+    .role("menu_item").accessibility_label(label).hover(s => s.bg(t.hover)).on_click(action).child(label);
 }
 export function agentMenu() {
   const t = theme(), s = props().session, overlay = props().overlay;

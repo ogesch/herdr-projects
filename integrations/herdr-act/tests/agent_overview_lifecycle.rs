@@ -53,6 +53,8 @@ function node() {
     if(method==='text_color') colors.set(id,args[0]);
     if(method==='bg') backgrounds.set(id,args[0]);
     if(method==='href') hrefs.set(id,args[0]);
+    if(method==='role') assert.match(args[0],/^[a-z]+(_[a-z]+)*$/,'Roles are gpui snake_case names');
+    if(method==='role') assert(['button','menu_item','menu','list_item','tree_item','link'].includes(args[0]),'Unknown gpui role '+args[0]);
     if(method==='flex_grow') assert.equal(typeof args[0],'number','Native flex growth requires an explicit weight');
     if(method==='when' && args[0]) args[1](el);
     if(String(method).startsWith('on_')) handlers.set(id+':'+method,args.at(-1));
