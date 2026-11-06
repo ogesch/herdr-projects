@@ -1,7 +1,8 @@
 // Personal ACT layout: native agent list, real terminal selection, durable corrections, and workflow history.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { theme, props, shared, setShared, focused, spaces, panes, terminals, run, exec, openOverlay, closeOverlay, setAgentOrder } from "herdr";
+import { theme, props, shared, setShared, focused, spaces, panes, terminals, run, exec, openOverlay, closeOverlay, setAgentOrder, notify } from "herdr";
+import { announceQuestions } from "./question-alerts.js";
 import { selected, nextCompletion, lightSnapshot, liveSnapshot, spaceSnapshot, embeddedChild, ownerRow } from "./model.js";
 import { sessionSummary } from "./session-summary.js";
 import { worktreesByTerminal } from "./worktrees.js";
@@ -63,6 +64,7 @@ export default class ActOverview extends View {
         for (const project of attention.projects) this.projectFolded.delete(project);
         for (const id of attention.agents) this.childrenFolded.delete(id);
         this.seenQuestions = attention.keys;
+        if (this.mode === "list") announceQuestions(attention, { shared, setShared, notify, terminals, focused });
         setShared(SNAPSHOT, lightSnapshot(this.snapshot, shared(SELECTION), focused()?.terminal));
         this.error = "";
       } catch (e) { this.error = String(e); }

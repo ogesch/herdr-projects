@@ -243,3 +243,40 @@ assert.equal(tree.commandText({phase_history:[{command:'act-interview'},{command
     let out=std::process::Command::new("node").args(["--input-type=module","-e",script]).arg(path).output().unwrap();
     assert!(out.status.success(),"{}",String::from_utf8_lossy(&out.stderr));
 }
+
+#[test]
+fn real_programs_new_questions_post_one_clickable_herdr_note_per_question() {
+    let _w=common::world();
+    let script=r#"import fs from 'node:fs'; import path from 'node:path'; import assert from 'node:assert/strict';
+const data = s => 'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
+const dir = path.dirname(process.argv[1]);
+const model = data(fs.readFileSync(process.argv[1],'utf8'));
+const treeSrc = data(fs.readFileSync(path.join(dir,'tree-model.js'),'utf8').replace('"./model.js"',JSON.stringify(model)));
+const tree = await import(treeSrc);
+const alerts = await import(data(fs.readFileSync(path.join(dir,'question-alerts.js'),'utf8').replace('"./tree-model.js"',JSON.stringify(treeSrc))));
+const row=(id,extra={})=>({depth:0,group:'NeedYou',session:{id,title:id,project:'Journal',runtime_status:'working',source:{Native:{terminal:'t-'+id}},...extra}});
+const asking=row('ask',{question:'Welche Variante?\nDetails',activity_generation:1});
+const here=row('here',{question:'Hier?'}), blocked=row('blocked',{question:'Blockiert?'});
+const app=row('app',{question:'Desktop?',source:{CodexApp:{thread_id:'x'}}});
+const live=[{address:'t-ask',status:'working'},{address:'t-here',status:'working'},{address:'t-blocked',status:'blocked'}];
+const rows=[asking,here,blocked,app,row('busy')];
+const values=new Map(), posted=[];
+const env={shared:k=>values.get(k),setShared:(k,v)=>values.set(k,v),notify:n=>posted.push(n),terminals:()=>live,focused:()=>({terminal:'t-here'})};
+alerts.announceQuestions(tree.newQuestions(rows,new Set()),env);
+assert.equal(posted.length,0,'The first look only records questions that are already open');
+assert.equal(values.get(alerts.ANNOUNCED).length,4);
+const next={...asking,session:{...asking.session,activity_generation:2}};
+const nextHere={...here,session:{...here.session,activity_generation:2}};
+const nextBlocked={...blocked,session:{...blocked.session,activity_generation:2}};
+const nextApp={...app,session:{...app.session,activity_generation:2}};
+const later=[next,nextHere,nextBlocked,nextApp];
+alerts.announceQuestions(tree.newQuestions(later,new Set()),env);
+assert.equal(posted.length,1,'Skip the focused terminal, a blocked terminal Herdr announces itself, and sessions without a terminal');
+assert.deepEqual(posted[0].action,{name:'agent.focus',args:{terminal:'t-ask'}},'Clicking goes to the agent');
+assert.equal(posted[0].title,'Journal braucht dich'); assert.equal(posted[0].body,'Welche Variante?');
+alerts.announceQuestions(tree.newQuestions(later,new Set()),{...env,focused:()=>null});
+assert.equal(posted.length,1,'A question is announced once, even by another list copy');"#;
+    let path=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("native/act-overview/model.js");
+    let out=std::process::Command::new("node").args(["--input-type=module","-e",script]).arg(path).output().unwrap();
+    assert!(out.status.success(),"{}",String::from_utf8_lossy(&out.stderr));
+}
