@@ -34,6 +34,14 @@ function stored(row) {
     && !s.question && !s.needs_user && !s.problem;
 }
 const finished = family => family[0].group === "Done" || statusOf(family[0].session).kind === "done";
+// Within a project: stopped agents first, the one that stopped last on top; working agents below in
+// their own order (their time changes constantly, so sorting them would make the list jump).
+const working = family => statusOf(family[0].session).kind === "working";
+const stoppedAt = family => family[0].session.activity_generation ?? 0;
+export function recentFirst(open) {
+  const stopped = open.filter(f => !working(f)).sort((a, b) => stoppedAt(b) - stoppedAt(a));
+  return [...stopped, ...open.filter(working)];
+}
 // Derive connectors from visible siblings so folded branches leave no dangling lines.
 export function branchGuides(rows) {
   const byId = new Map(rows.map(row => [row.session.id, row.session]));
@@ -60,7 +68,8 @@ function urgency(families) {
   }
   return status;
 }
-// Completed assignments stay in their own project with their check mark, after its open families.
+// Completed assignments stay in their own project with their check mark, after its open families,
+// which are ordered by recentFirst.
 // A project's mark is its most urgent open status; only a project with nothing open shows the check.
 export function projectTree(rows, { project = "", showHidden = false } = {}) {
   const projects = new Map(), saved = [];
@@ -74,7 +83,7 @@ export function projectTree(rows, { project = "", showHidden = false } = {}) {
     if (!group.path) group.path = family.find(row => row.session.project_path)?.session.project_path ?? "";
   }
   const list = [...projects.values()].map(({ name, open, closed, path }) => ({
-    name, path, rows: [...open, ...closed].flat(),
+    name, path, rows: [...recentFirst(open), ...closed].flat(),
     count: [...open, ...closed].length, open: open.length,
     status: open.length ? urgency(open) : STATES.done
   }));

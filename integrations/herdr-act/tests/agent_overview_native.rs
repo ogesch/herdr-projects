@@ -238,7 +238,10 @@ assert.deepEqual(guides.get('sibling'),['last'],'Stop the line at the final sibl
 assert.deepEqual(tree.branchGuides([working,oldChild,nested]).get('nested'),['blank','last']);
 assert.deepEqual(tree.branchGuides([working,sibling]).get('sibling'),['last'],'Recompute after filtering or folding');
 assert.equal(tree.branchGuides([cycleA,cycleB]).size,2,'Cyclic metadata must not loop');
-assert.equal(tree.commandText({phase_history:[{command:'act-interview'},{command:'act-implement-flutter'}]}),'implement-flutter');"#;
+assert.equal(tree.commandText({phase_history:[{command:'act-interview'},{command:'act-implement-flutter'}]}),'implement-flutter');
+const at=(id,runtime,t)=>row(id,'Order',runtime,'Unknown',{activity_generation:t});
+const order=tree.projectTree([at('w1','working',900),at('old','idle',100),at('w2','working',50),at('new','idle',300),at('ask','idle',200),{...at('kid','waiting-parent',999),depth:1}]).projects[0].rows.map(r=>r.session.id);
+assert.deepEqual(order,['new','ask','kid','old','w1','w2'],'The agent that stopped last is on top; working agents follow in their own order');"#;
     let path=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("native/act-overview/model.js");
     let out=std::process::Command::new("node").args(["--input-type=module","-e",script]).arg(path).output().unwrap();
     assert!(out.status.success(),"{}",String::from_utf8_lossy(&out.stderr));
