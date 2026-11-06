@@ -1,2 +1,2 @@
-<!-- Native status or disclosure mark; tinted by the current Herdr theme. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="currentColor"/></svg>
+<!-- Native status mark: a working agent; a faint track with an arc that the view spins. Tinted by the current Herdr theme. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="5.5" stroke-opacity="0.25"/><path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5"/></svg>

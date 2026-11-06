@@ -1,4 +1,4 @@
-// Quiet project tree: selectable project headings, one status mark per agent, program icon, right-aligned ACT step.
+// Quiet project tree: selectable project headings, one status mark per agent (working spins like Herdr's own tabs, "Braucht dich" pulses), program icon, right-aligned ACT step.
 // Agent families hang directly under their project; a right click offers to close an agent.
 import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
@@ -9,7 +9,9 @@ const ICONS = "mods/act-overview/icons/";
 function mark(status, t, id, size = 12) {
   return h_flex().id("status-" + id).w(16).h(20).flex_none().items_center().justify_center()
     .tooltip(status.label).accessibility_label(status.label)
-    .child(svg(ICONS + status.icon + ".svg").size(size).text_color(t[status.color] ?? t.dim));
+    .child(svg(ICONS + status.icon + ".svg").size(size).text_color(t[status.color] ?? t.dim)
+      .when(status.kind === "working", el => el.spin(900))
+      .when(status.kind === "question", el => el.loop("opacity", { from: 0.35, to: 1, period: 1400 })));
 }
 function disclosure(id, open, action, t) {
   return h_flex().id("disclose-" + id).w(18).h(24).flex_none().items_center().justify_center().cursor_pointer()

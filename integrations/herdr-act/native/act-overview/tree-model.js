@@ -4,7 +4,7 @@ import { completion, families, filtered } from "./model.js";
 const STATES = {
   question: { kind: "question", icon: "question", color: "ansi3", label: "Braucht dich", rank: 0 },
   problem: { kind: "problem", icon: "problem", color: "ansi1", label: "Problem", rank: 1 },
-  working: { kind: "working", icon: "working", color: "ansi4", label: "Arbeitet", rank: 2 },
+  working: { kind: "working", icon: "working", color: "working", label: "Arbeitet", rank: 2 },
   done: { kind: "done", icon: "done", color: "ansi2", label: "Auftrag abgeschlossen", rank: 3 },
   parent: { kind: "parent", icon: "waiting", color: "dim", label: "Wartet auf Hauptagent", rank: 4 },
   idle: { kind: "idle", icon: "idle", color: "dim", label: "Inaktiv", rank: 4 },
@@ -80,18 +80,20 @@ export function projectTree(rows, { project = "", showHidden = false } = {}) {
   }));
   return { projects: list.sort((a, b) => a.status.rank - b.status.rank || a.name.localeCompare(b.name)), saved };
 }
+export const questionKey = s => `${s.id}:${s.activity_generation ?? ""}:${s.question ?? ""}`;
 export function newQuestions(rows, previous) {
   const byId = new Map(rows.map(row => [row.session.id, row.session]));
-  const keys = new Set(), agents = new Set(), projects = new Set();
+  const keys = new Set(), agents = new Set(), projects = new Set(), fresh = [];
   for (const { session } of rows) {
     if (statusOf(session).kind !== "question") continue;
-    const key = `${session.id}:${session.activity_generation ?? ""}:${session.question ?? ""}`;
+    const key = questionKey(session);
     keys.add(key);
     if (previous.has(key)) continue;
+    fresh.push(session);
     const visited = new Set();
     for (let s = session; s && !visited.has(s.id); s = byId.get(s.parent_id)) {
       visited.add(s.id); agents.add(s.id); projects.add(s.project);
     }
   }
-  return { keys, agents, projects };
+  return { keys, agents, projects, fresh };
 }
